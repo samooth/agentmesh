@@ -14,7 +14,8 @@ configuration, and behavioral differences.
 
 ## opencode
 
-Add the plugin to any project's `opencode.json`:
+Install the package in the project (`bun add agentmesh` / `npm i agentmesh`)
+and reference it in `opencode.json`:
 
 ```json
 {
@@ -23,13 +24,8 @@ Add the plugin to any project's `opencode.json`:
 }
 ```
 
-Or, from a local clone, reference the entry directly:
-
-```json
-{
-  "plugin": [["./node_modules/agentmesh/src/index.ts", { "room": "myteam" }]]
-}
-```
+Working from a git clone instead? Reference the checkout's entry directly
+(`"~/agentmesh/src/index.ts"` or `"./node_modules/agentmesh/src/index.ts"`).
 
 Features wired via opencode hooks: system-prompt note
 (`experimental.chat.system.transform`), the push feed
@@ -39,8 +35,8 @@ to the host log under `service: agentmesh`.
 
 ## Kilo Code
 
-Kilo's plugin API is an opencode fork. In `kilo.json` (or
-`.kilo/opencode.jsonc`):
+Kilo's plugin API is an opencode fork. Install the package and use the same
+shape in `kilo.json` (or `.kilo/opencode.jsonc`):
 
 ```json
 {
@@ -49,29 +45,31 @@ Kilo's plugin API is an opencode fork. In `kilo.json` (or
 }
 ```
 
-Or install the checkout with `kilo plugin agentmesh` — the package's
-`./server` export (`src/kilo.ts`) is auto-detected — then add options. All
-opencode features (feed, compaction, toasts) apply.
+`kilo plugin agentmesh` also works — Kilo auto-detects the package's
+`./server` export (`src/kilo.ts`). All opencode features (feed, compaction,
+toasts) apply. From a git clone, reference the entry path directly as with
+opencode.
 
 ## OpenCodex
 
 OpenCodex plugins are per-tool `.js` files in `~/.open-codex/plugins/` with
 no options channel, so configuration comes from environment variables. The
-installer transpiles the plugin graph to plain `.js` first (open-codex
-targets Node >= 22, which cannot load `.ts` modules; the compiled bundle
-ships as `agentmesh-codex/` next to the four stubs):
+installer transpiles the plugin graph to plain `.js` (open-codex runs
+Node >= 22, which cannot load `.ts` from `node_modules` anyway; the compiled
+bundle ships as `agentmesh-codex/` next to the four stubs):
 
 ```sh
-node scripts/install-codex.mjs
+node node_modules/agentmesh/scripts/install-codex.mjs
 export AGENTMESH_ROOM="myteam"
 export AGENTMESH_SECRET="letmein"   # optional but recommended
 open-codex
 ```
 
-The installer needs the repo's devDependencies (`bun install` in the
-checkout). It symlinks `node_modules` into the bundle for the sidecar's
-runtime deps; where symlinks are unavailable (Windows without developer
-mode) it copies the runtime subset instead.
+The installer uses the package's bundled build when present (`dist/`) or
+compiles from source with the installed `typescript`. It links
+`node_modules` into the bundle for the sidecar's runtime deps; where
+symlinks are unavailable (Windows without developer mode) it copies the
+runtime subset instead.
 
 Caveats: no system hook (guidance lives in tool descriptions), no
 notifications (messages are pull-only via `agent_chat_history`), and the
@@ -82,12 +80,13 @@ retired in favor of the opencode-style path.
 ## pi
 
 pi extensions auto-load from `~/.pi/agent/extensions/` (or project
-`.pi/extensions/`). From a checkout, symlink or copy the entry (plus `src/`,
-since the entry imports from it):
+`.pi/extensions/`). From an installed package, symlink the **compiled**
+entry (`dist/pi.js` — Node cannot type-strip `.ts` files inside
+`node_modules`, so use the shipped build):
 
 ```sh
 mkdir -p ~/.pi/agent/extensions
-ln -s /path/to/agentmesh/src/pi.ts ~/.pi/agent/extensions/agentmesh.ts
+ln -s "$(pwd)/node_modules/agentmesh/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
 export AGENTMESH_ROOM="myteam"
 export AGENTMESH_SECRET="letmein"
 pi

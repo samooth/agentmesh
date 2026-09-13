@@ -1,7 +1,7 @@
 {
   "name": "agentmesh",
   "version": "0.3.0",
-  "description": "Peer-to-peer realtime chat for opencode and Kilo Code agents via Hyperswarm",
+  "description": "Peer-to-peer realtime chat for coding agents (opencode, Kilo Code, OpenCodex, pi) via Hyperswarm",
   "license": "MIT",
   "author": "Tomás Díaz <tomas@bsv.direct>",
   "repository": {
@@ -21,20 +21,36 @@
     "opencode",
     "kilo",
     "codex",
-    "pi"
+    "pi",
+    "agent-to-agent",
+    "holepunch"
   ],
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/kilo.ts"
+    "./server": "./src/kilo.ts",
+    "./pi": "./dist/pi.js",
+    "./codex": "./dist/codex.js",
+    "./sidecar": "./dist/sidecar.js"
   },
+  "files": [
+    "src",
+    "dist",
+    "scripts",
+    "docs",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
   "bin": {
     "agentmesh-debug": "./src/cli.ts"
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --target ES2022 --module ES2022 --moduleResolution node --lib ES2022 --skipLibCheck --strict --allowImportingTsExtensions --rewriteRelativeImportExtensions --outDir dist src/codex.ts src/pi.ts src/sidecar.ts src/types/hypercore-crypto.d.ts src/types/hyperswarm.d.ts src/types/pi.d.ts",
+    "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
     "@kilocode/plugin": "*",

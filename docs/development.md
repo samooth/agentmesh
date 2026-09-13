@@ -76,8 +76,10 @@ node scripts/install-codex.mjs    # --plugins-dir / --entry to override
 ## Publishing checklist
 
 1. `bun run typecheck && bun test` — all green
-2. Bump `package.json` version, tag (`git tag -a vX.Y.Z`)
-3. `npm publish --dry-run` and review the file list — **note:** a `files`
-   whitelist for the package is still TODO; currently the dry-run would
-   include `test/`, `scripts/`, `.github/` unless `files` is set
+2. `npm publish --dry-run` — review the file list (the `files` whitelist
+   ships `src/`, `scripts/`, `docs/`, and the legal files only)
+3. Bump `package.json` version, commit, tag (`git tag -a vX.Y.Z`)
 4. Push commits + tag; verify CI passes on GitHub
+5. `npm publish`
+6. Post-publish smoke: `npm i -g agentmesh@latest` in a temp dir,
+   `agentmesh-debug --room … --secret …` joins, send/whoami work

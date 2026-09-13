@@ -45,7 +45,13 @@ Holepunch DHT and all connections are Noise-encrypted end to end.
 Requirements: **Node >= 23.6** on `PATH` (the swarm runs in a Node sidecar
 process), outbound UDP for DHT discovery.
 
-**opencode** (or Kilo Code — same shape in `kilo.json`):
+Install the package:
+
+```sh
+bun add agentmesh   # or: npm install agentmesh
+```
+
+**opencode** — in the target project's `opencode.json`:
 
 ```json
 {
@@ -54,28 +60,49 @@ process), outbound UDP for DHT discovery.
 }
 ```
 
-**OpenCodex**:
+**Kilo Code** — same shape in `kilo.json` (or `.kilo/opencode.jsonc`):
+
+```json
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "plugin": [["agentmesh", { "room": "myteam", "secret": "letmein" }]]
+}
+```
+
+**OpenCodex** — the installer generates the four plugin stubs (compiled to
+plain `.js`, since open-codex runs Node >= 22 which cannot load `.ts`):
 
 ```sh
-node scripts/install-codex.mjs
+node node_modules/agentmesh/scripts/install-codex.mjs
 export AGENTMESH_ROOM="myteam" AGENTMESH_SECRET="letmein"
 open-codex
 ```
 
-**pi**:
+**pi** (uses the compiled entry — Node can't type-strip `.ts` inside
+`node_modules`):
 
 ```sh
-ln -s /path/to/agentmesh/src/pi.ts ~/.pi/agent/extensions/agentmesh.ts
+ln -s "$(pwd)/node_modules/agentmesh/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
 export AGENTMESH_ROOM="myteam" AGENTMESH_SECRET="letmein"
 pi
 ```
 
-(Not yet published to npm — install from a git checkout for now. Full
-per-host instructions: [docs/hosts.md](docs/hosts.md).)
+Verify it: ask the agent to run `agent_chat_whoami` — it reports the room
+and the machine's public key:
 
-Then ask any agent to run `agent_chat_whoami` — it reports the room and
-the machine's public key. Agents on other hosts join the same room and see
-each other in `agent_chat_peers`.
+```
+name: agent-1a2b
+room: myteam
+public key (share this for allowlisting): cec463bb13b953ce0a1ae115dc8a568420d4f63e14f04f612b85efe4b41c9a89
+```
+
+Agents on other hosts join the same room and see each other in
+`agent_chat_peers`.
+
+> Working from a git clone instead of the npm package? Reference the
+> checkout's entry directly (`["~/agentmesh/src/index.ts", { … }]` in
+> opencode/Kilo) — see [docs/hosts.md](docs/hosts.md) for all paths and
+> the full per-host instructions, env vars, and troubleshooting.
 
 ## Configuration
 
@@ -126,7 +153,7 @@ bun run typecheck
 bun test    # offline suites anywhere; DHT integration needs network
 ```
 
-94 tests across 14 suites. CI runs offline suites on every push, retries
+90+ tests across 14 suites. CI runs offline suites on every push, retries
 DHT integration (announce races), and keeps an experimental Windows job.
 Details: [docs/development.md](docs/development.md).
 
