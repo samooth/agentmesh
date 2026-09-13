@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import piExtension from "../src/pi.ts"
+import { uniqueRoom, uniqueSecret } from "./helpers/rooms.ts"
 
 /**
  * pi entry tests: the factory registers the four tools + /mesh command,
@@ -94,8 +95,9 @@ describe("pi entry", () => {
   })
 
   test("enabled e2e: send + whoami through the real sidecar, toast bound at session_start", async () => {
-    process.env.AGENTMESH_ROOM = "pi-e2e-test"
-    process.env.AGENTMESH_SECRET = "e2e"
+    const room = uniqueRoom("pi-e2e")
+    process.env.AGENTMESH_ROOM = room
+    process.env.AGENTMESH_SECRET = uniqueSecret()
     const pi = makeMockPi()
     piExtension(pi.api)
 
@@ -113,7 +115,7 @@ describe("pi entry", () => {
 
     const send = pi.tools.get("agent_chat_send")!
     const sent = await send.execute("t2", { text: "hello from pi" }, undefined, undefined, ctx)
-    expect(sent.content[0]!.text).toContain("room \"pi-e2e-test\"")
+    expect(sent.content[0]!.text).toContain(`room "${room}"`)
 
     // graceful teardown via session_shutdown
     await pi.handlers.session_shutdown[0]!({}, ctx)

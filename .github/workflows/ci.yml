@@ -87,6 +87,8 @@ jobs:
       - name: sidecar spawn smoke (offline room)
         shell: bash
         run: |
-          node src/sidecar.ts --topic "$(node -e "console.log('a'.repeat(64))")" --id smoke --name smoke --room smoke &
+          # random topic: a fixed one is pre-computable and joinable by anyone
+          TOPIC=$(node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))")
+          node src/sidecar.ts --topic "$TOPIC" --id smoke --name smoke --room smoke &
           sleep 5
           tasklist //FI "IMAGENAME eq node.exe" | grep -c node.exe || true

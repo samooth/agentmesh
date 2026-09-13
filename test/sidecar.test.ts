@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { deriveTopic } from "../src/protocol.ts"
 import { SidecarClient } from "../src/client.ts"
+import { uniqueRoom, uniqueSecret } from "./helpers/rooms.ts"
 
 /**
  * Real-network integration tests: two Node sidecar processes join the same
@@ -11,8 +12,8 @@ import { SidecarClient } from "../src/client.ts"
 
 const NODE = process.env.OPENCODE_CHAT_NODE ?? "node"
 const SIDECAR = new URL("../src/sidecar.ts", import.meta.url).pathname
-const room = `test-room-${Date.now()}`
-const topicHex = deriveTopic(room, "test-secret").toString("hex")
+const room = uniqueRoom("test-room")
+const topicHex = deriveTopic(room, uniqueSecret()).toString("hex")
 
 let alpha: SidecarClient
 let beta: SidecarClient

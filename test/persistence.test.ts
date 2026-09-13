@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { mkdir, rm, writeFile, readFile } from "node:fs/promises"
+import { rm, writeFile, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { SidecarClient } from "../src/client.ts"
+import { uniqueRoom, uniqueSecret, testWorkDir } from "./helpers/rooms.ts"
 import {
   deriveTopic,
   signChatMessage,
@@ -18,9 +19,9 @@ import {
 
 const NODE = process.env.OPENCODE_CHAT_NODE ?? "node"
 const SIDECAR = new URL("../src/sidecar.ts", import.meta.url).pathname
-const WORK = "/tmp/opencode/agentmesh-persist-test"
-const room = `persist-${Date.now()}`
-const topicHex = deriveTopic(room, "offline").toString("hex")
+const room = uniqueRoom("persist")
+const topicHex = deriveTopic(room, uniqueSecret()).toString("hex")
+const WORK = await testWorkDir("persist")
 const persistPath = join(WORK, "history.jsonl")
 const allowPath = join(WORK, "allow.json")
 
@@ -51,8 +52,6 @@ function spawn(allowFile?: string): SidecarClient {
 let client: SidecarClient
 
 beforeAll(async () => {
-  await rm(WORK, { recursive: true, force: true }).catch(() => {})
-  await mkdir(WORK, { recursive: true })
   client = spawn()
   await client.ready
 }, 30_000)

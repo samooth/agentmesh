@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdir } from "node:fs/promises"
 import { startChat } from "../src/plugin-core.ts"
+import { uniqueRoom, uniqueSecret, testWorkDir } from "./helpers/rooms.ts"
 
 /**
  * Multi-room (D14): a session joins a primary room eagerly plus a second
@@ -8,7 +9,13 @@ import { startChat } from "../src/plugin-core.ts"
  * Offline (no peers): the second sidecar starts on demand.
  */
 
-const CWD = "/tmp/opencode/agentmesh-multiroom-test"
+const CWD = await testWorkDir("multiroom")
+// unique per run so nobody can pre-compute a test topic and inject into it
+const ROOM_PRIMARY = uniqueRoom("multi-primary")
+const ROOM_SECONDARY = uniqueRoom("multi-secondary")
+const ROOM_SYS = uniqueRoom("sys-primary")
+const ROOM_SYS2 = uniqueRoom("sys-2")
+const ROOM_COMPACT = uniqueRoom("compact-room")
 const ENV_KEYS = ["AGENTMESH_NODE", "AGENTMESH_ALLOW_FILE", "AGENTMESH_PERSIST"] as const
 const savedEnv: Record<string, string | undefined> = {}
 for (const key of ENV_KEYS) {
@@ -49,11 +56,11 @@ describe("multi-room", () => {
     const hooks = await startChat(
       { directory: CWD },
       {
-        room: "multi-primary",
-        secret: "p",
+        room: ROOM_PRIMARY,
+        secret: uniqueSecret(),
         name: "multi-probe",
         rooms: {
-          "multi-secondary": "s",
+          [ROOM_SECONDARY]: uniqueSecret(),
         },
       },
       host,
@@ -68,22 +75,22 @@ describe("multi-room", () => {
 
       // primary: default routing
       const primaryInfo = await whoami.execute({})
-      expect(primaryInfo).toContain("room: multi-primary")
+      expect(primaryInfo).toContain(`room: ${ROOM_PRIMARY}`)
 
       // second room: lazy spawn on first use
-      const secondaryInfo = await whoami.execute({ room: "multi-secondary" })
-      expect(secondaryInfo).toContain("room: multi-secondary")
+      const secondaryInfo = await whoami.execute({ room: ROOM_SECONDARY })
+      expect(secondaryInfo).toContain(`room: ${ROOM_SECONDARY}`)
 
       // send routed per room; both see their own room's echo
       const sent1 = await send.execute({ text: "to primary" })
-      expect(sent1).toContain('room "multi-primary"')
-      const sent2 = await send.execute({ text: "to secondary", room: "multi-secondary" })
-      expect(sent2).toContain('room "multi-secondary"')
+      expect(sent1).toContain(`room "${ROOM_PRIMARY}"`)
+      const sent2 = await send.execute({ text: "to secondary", room: ROOM_SECONDARY })
+      expect(sent2).toContain(`room "${ROOM_SECONDARY}"`)
 
       // unknown room is rejected with a clear hint
       const rejected = await send.execute({ text: "to nowhere", room: "does-not-exist" })
       expect(rejected).toContain("not configured")
-      expect(rejected).toContain("multi-primary")
+      expect(rejected).toContain(ROOM_PRIMARY)
     } finally {
       await hooks.dispose()
     }
@@ -95,18 +102,18 @@ describe("multi-room", () => {
     const hooks = await startChat(
       { directory: CWD },
       {
-        room: "sys-primary",
-        secret: "p",
+        room: ROOM_SYS,
+        secret: uniqueSecret(),
         name: "probe",
-        rooms: { "sys-2": "" },
+        rooms: { [ROOM_SYS2]: "" },
       },
       host,
     )
     try {
       const system: string[] = []
       await hooks.systemTransform((text) => system.push(text))
-      expect(system[0]).toContain("sys-primary")
-      expect(system[0]).toContain("sys-2")
+      expect(system[0]).toContain(ROOM_SYS)
+      expect(system[0]).toContain(ROOM_SYS2)
     } finally {
       await hooks.dispose()
     }
@@ -117,7 +124,7 @@ describe("multi-room", () => {
     const { host } = mockHost()
     const hooks = await startChat(
       { directory: CWD },
-      { room: "compact-room", secret: "p", name: "probe" },
+      { room: ROOM_COMPACT, secret: uniqueSecret(), name: "probe" },
       host,
     )
     try {

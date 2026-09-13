@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { execSync } from "node:child_process"
 import { deriveTopic } from "../src/protocol.ts"
 import { SidecarClient } from "../src/client.ts"
+import { uniqueRoom, uniqueSecret } from "./helpers/rooms.ts"
 
 /**
  * Real-network integration tests for the public-key allowlist:
@@ -13,8 +14,8 @@ import { SidecarClient } from "../src/client.ts"
 
 const NODE = process.env.OPENCODE_CHAT_NODE ?? "node"
 const SIDECAR = new URL("../src/sidecar.ts", import.meta.url).pathname
-const room = `allow-room-${Date.now()}`
-const topicHex = deriveTopic(room, "allow-secret").toString("hex")
+const room = uniqueRoom("allow-room")
+const topicHex = deriveTopic(room, uniqueSecret()).toString("hex")
 
 // fixed seeds => deterministic pubkeys we can cross-allowlist
 const SEED_ALPHA = "ab".repeat(32)

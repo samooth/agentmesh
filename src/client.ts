@@ -213,6 +213,23 @@ export class SidecarClient {
     return this.exitCode
   }
 
+  /**
+   * Hard-kill the child process (crash simulation). Marks the client dead
+   * without the graceful stdin shutdown — used by tests and by anyone
+   * debugging sidecar restart behavior. Cross-platform: process.kill(pid)
+   * works on Windows (terminate).
+   */
+  kill(): void {
+    const child = this.child
+    if (!child || this.exited) return
+    this.exited = true
+    try {
+      child.kill("SIGKILL")
+    } catch {
+      // already gone
+    }
+  }
+
   private handleLine(line: string): void {
     let parsed: unknown
     try {

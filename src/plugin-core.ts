@@ -105,6 +105,11 @@ export type CoreHooks<TOOL> = {
    * chat is disabled, feed is off, or nothing new arrived.
    */
   pendingFeed: () => Promise<string | null>
+  /**
+   * Direct handle to the primary room's sidecar client (resilient proxy).
+   * For tests and debugging — production code uses the tools.
+   */
+  debugSidecar: () => SidecarClient | null
 }
 
 const IDENTITY_DIR = "agentmesh"
@@ -219,6 +224,7 @@ export async function startChat<TOOL>(
       dispose: async () => {},
       compactionContext: async () => [],
       pendingFeed: async () => null,
+      debugSidecar: () => null,
     }
   }
 
@@ -492,6 +498,7 @@ export async function startChat<TOOL>(
       }
     },
     pendingFeed,
+    debugSidecar: () => primarySidecar,
   }
 }
 
@@ -547,6 +554,7 @@ function wrapResilient(deps: {
     isDead: () => current.isDead(),
     lastExitCode: () => current.lastExitCode(),
     stderrTail: () => current.stderrTail(),
+    kill: () => current.kill(),
     destroy: async () => {
       restarting = null
       await current.destroy()
