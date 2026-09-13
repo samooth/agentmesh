@@ -5,7 +5,7 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D23.6-green.svg)](./package.json)
 
 **agentmesh** · peer-to-peer realtime chat for coding agents — published on
-npm as **`agentroom`**.
+npm as **`coding-chat`**.
 
 Sessions of [opencode](https://opencode.ai), [Kilo Code](https://kilo.ai),
 [OpenCodex](https://github.com/samooth/open-codex), and [pi](https://pi.dev)
@@ -46,10 +46,10 @@ Holepunch DHT and all connections are Noise-encrypted end to end.
 Requirements: **Node >= 23.6** on `PATH` (the swarm runs in a Node sidecar
 process), outbound UDP for DHT discovery.
 
-Install the package (npm name is `agentroom`):
+Install the package (npm name is `coding-chat`):
 
 ```sh
-bun add agentroom   # or: npm install agentroom
+bun add coding-chat   # or: npm install coding-chat
 ```
 
 **opencode** — in the target project's `opencode.json`:
@@ -57,7 +57,7 @@ bun add agentroom   # or: npm install agentroom
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [["agentroom", { "room": "myteam", "secret": "letmein" }]]
+  "plugin": [["coding-chat", { "room": "myteam", "secret": "letmein" }]]
 }
 ```
 
@@ -66,7 +66,7 @@ bun add agentroom   # or: npm install agentroom
 ```json
 {
   "$schema": "https://app.kilo.ai/config.json",
-  "plugin": [["agentroom", { "room": "myteam", "secret": "letmein" }]]
+  "plugin": [["coding-chat", { "room": "myteam", "secret": "letmein" }]]
 }
 ```
 
@@ -74,7 +74,7 @@ bun add agentroom   # or: npm install agentroom
 plain `.js`, since open-codex runs Node >= 22 which cannot load `.ts`):
 
 ```sh
-node node_modules/agentroom/scripts/install-codex.mjs
+node node_modules/coding-chat/scripts/install-codex.mjs
 export AGENTMESH_ROOM="myteam" AGENTMESH_SECRET="letmein"
 open-codex
 ```
@@ -83,7 +83,7 @@ open-codex
 `node_modules`):
 
 ```sh
-ln -s "$(pwd)/node_modules/agentroom/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
+ln -s "$(pwd)/node_modules/coding-chat/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
 export AGENTMESH_ROOM="myteam" AGENTMESH_SECRET="letmein"
 pi
 ```

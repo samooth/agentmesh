@@ -81,5 +81,5 @@ node scripts/install-codex.mjs    # --plugins-dir / --entry to override
 3. Bump `package.json` version, commit, tag (`git tag -a vX.Y.Z`)
 4. Push commits + tag; verify CI passes on GitHub
 5. `npm publish`
-6. Post-publish smoke: `npm i agentroom@latest` in a temp dir,
+6. Post-publish smoke: `npm i coding-chat@latest` in a temp dir,
    `agentmesh-debug --room … --secret …` joins, send/whoami work

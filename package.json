@@ -1,15 +1,15 @@
 {
-  "name": "agentroom",
+  "name": "coding-chat",
   "version": "0.3.1",
-  "description": "agentmesh — peer-to-peer realtime chat for coding agents (opencode, Kilo Code, OpenCodex, pi) via Hyperswarm",
+  "description": "coding-chat — peer-to-peer realtime chat for coding agents (opencode, Kilo Code, OpenCodex, pi) via Hyperswarm",
   "license": "MIT",
   "author": "Tomás Díaz <tomas@bsv.direct>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/samooth/agentmesh.git"
+    "url": "git+https://github.com/samooth/coding-chat.git"
   },
-  "homepage": "https://github.com/samooth/agentmesh#readme",
-  "bugs": "https://github.com/samooth/agentmesh/issues",
+  "homepage": "https://github.com/samooth/coding-chat#readme",
+  "bugs": "https://github.com/samooth/coding-chat/issues",
   "engines": {
     "node": ">=23.6"
   },

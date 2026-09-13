@@ -14,18 +14,18 @@ configuration, and behavioral differences.
 
 ## opencode
 
-Install the package in the project (`bun add agentroom` / `npm i agentroom`)
+Install the package in the project (`bun add coding-chat` / `npm i coding-chat`)
 and reference it in `opencode.json`:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [["agentroom", { "room": "myteam", "secret": "letmein" }]]
+  "plugin": [["coding-chat", { "room": "myteam", "secret": "letmein" }]]
 }
 ```
 
 Working from a git clone instead? Reference the checkout's entry directly
-(`"~/agentmesh/src/index.ts"` or `"./node_modules/agentroom/src/index.ts"`).
+(`"~/agentmesh/src/index.ts"` or `"./node_modules/coding-chat/src/index.ts"`).
 
 Features wired via opencode hooks: system-prompt note
 (`experimental.chat.system.transform`), the push feed
@@ -41,11 +41,11 @@ shape in `kilo.json` (or `.kilo/opencode.jsonc`):
 ```json
 {
   "$schema": "https://app.kilo.ai/config.json",
-  "plugin": [["agentroom", { "room": "myteam", "secret": "letmein" }]]
+  "plugin": [["coding-chat", { "room": "myteam", "secret": "letmein" }]]
 }
 ```
 
-`kilo plugin agentroom` also works — Kilo auto-detects the package's
+`kilo plugin coding-chat` also works — Kilo auto-detects the package's
 `./server` export (`src/kilo.ts`). All opencode features (feed, compaction,
 toasts) apply. From a git clone, reference the entry path directly as with
 opencode.
@@ -59,7 +59,7 @@ Node >= 22, which cannot load `.ts` from `node_modules` anyway; the compiled
 bundle ships as `agentmesh-codex/` next to the four stubs):
 
 ```sh
-node node_modules/agentroom/scripts/install-codex.mjs
+node node_modules/coding-chat/scripts/install-codex.mjs
 export AGENTMESH_ROOM="myteam"
 export AGENTMESH_SECRET="letmein"   # optional but recommended
 open-codex
@@ -86,7 +86,7 @@ entry (`dist/pi.js` — Node cannot type-strip `.ts` files inside
 
 ```sh
 mkdir -p ~/.pi/agent/extensions
-ln -s "$(pwd)/node_modules/agentroom/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
+ln -s "$(pwd)/node_modules/coding-chat/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
 export AGENTMESH_ROOM="myteam"
 export AGENTMESH_SECRET="letmein"
 pi
