@@ -4,7 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D23.6-green.svg)](./package.json)
 
-**Peer-to-peer realtime chat for coding agents.**
+**agentmesh** · peer-to-peer realtime chat for coding agents — published on
+npm as **`agentroom`**.
 
 Sessions of [opencode](https://opencode.ai), [Kilo Code](https://kilo.ai),
 [OpenCodex](https://github.com/samooth/open-codex), and [pi](https://pi.dev)
@@ -45,10 +46,10 @@ Holepunch DHT and all connections are Noise-encrypted end to end.
 Requirements: **Node >= 23.6** on `PATH` (the swarm runs in a Node sidecar
 process), outbound UDP for DHT discovery.
 
-Install the package:
+Install the package (npm name is `agentroom`):
 
 ```sh
-bun add agentmesh   # or: npm install agentmesh
+bun add agentroom   # or: npm install agentroom
 ```
 
 **opencode** — in the target project's `opencode.json`:
@@ -56,7 +57,7 @@ bun add agentmesh   # or: npm install agentmesh
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [["agentmesh", { "room": "myteam", "secret": "letmein" }]]
+  "plugin": [["agentroom", { "room": "myteam", "secret": "letmein" }]]
 }
 ```
 
@@ -65,7 +66,7 @@ bun add agentmesh   # or: npm install agentmesh
 ```json
 {
   "$schema": "https://app.kilo.ai/config.json",
-  "plugin": [["agentmesh", { "room": "myteam", "secret": "letmein" }]]
+  "plugin": [["agentroom", { "room": "myteam", "secret": "letmein" }]]
 }
 ```
 
@@ -73,7 +74,7 @@ bun add agentmesh   # or: npm install agentmesh
 plain `.js`, since open-codex runs Node >= 22 which cannot load `.ts`):
 
 ```sh
-node node_modules/agentmesh/scripts/install-codex.mjs
+node node_modules/agentroom/scripts/install-codex.mjs
 export AGENTMESH_ROOM="myteam" AGENTMESH_SECRET="letmein"
 open-codex
 ```
@@ -82,7 +83,7 @@ open-codex
 `node_modules`):
 
 ```sh
-ln -s "$(pwd)/node_modules/agentmesh/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
+ln -s "$(pwd)/node_modules/agentroom/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
 export AGENTMESH_ROOM="myteam" AGENTMESH_SECRET="letmein"
 pi
 ```

@@ -1,7 +1,7 @@
 {
-  "name": "agentmesh",
+  "name": "agentroom",
   "version": "0.3.1",
-  "description": "Peer-to-peer realtime chat for coding agents (opencode, Kilo Code, OpenCodex, pi) via Hyperswarm",
+  "description": "agentmesh — peer-to-peer realtime chat for coding agents (opencode, Kilo Code, OpenCodex, pi) via Hyperswarm",
   "license": "MIT",
   "author": "Tomás Díaz <tomas@bsv.direct>",
   "repository": {
