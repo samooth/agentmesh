@@ -1,25 +1,34 @@
-import { tool } from "@opencode-ai/plugin"
 import type { SidecarClient } from "./client.ts"
 
-export function toolsFor(deps: {
-  sidecar: SidecarClient | null
-  room: string
-  startupError: string | null
-}): Record<string, ReturnType<typeof tool>> {
+/**
+ * Host-agnostic tool definitions. Both opencode and Kilo Code ship a `tool()`
+ * helper that is the same identity function wrapping Zod; instead of importing
+ * a host SDK here, callers inject their host's `tool` so this module stays
+ * host-neutral and the returned registry typechecks against either host.
+ */
+export function toolsFor<TOOL>(
+  deps: {
+    sidecar: SidecarClient | null
+    room: string
+    startupError: string | null
+  },
+  make: ToolFactory<TOOL>,
+): Record<string, TOOL> {
   const { sidecar, room, startupError } = deps
+  const schema = make.schema
 
   const unavailable = () =>
     startupError
       ? `Chat is unavailable: ${startupError}`
       : "Chat is unavailable: the swarm sidecar is not running."
 
-  const agentChatSend = tool({
+  const agentChatSend = make({
     description:
-      "Send a message to the team agent chat room where other opencode agents working on related tasks can see it in real time. Use it to share findings, ask questions, warn about file conflicts, or coordinate work.",
+      "Send a message to the team agent chat room where other coding agents working on related tasks can see it in real time. Use it to share findings, ask questions, warn about file conflicts, or coordinate work.",
     args: {
-      text: tool.schema.string().describe("Message to send to the room (plain text)"),
+      text: schema.string().describe("Message to send to the room (plain text)"),
     },
-    async execute(args) {
+    async execute(args: { text: string }) {
       if (!sidecar) return unavailable()
       const text = args.text.trim()
       if (text.length === 0) return "Not sent: message is empty."
@@ -34,11 +43,11 @@ export function toolsFor(deps: {
     },
   })
 
-  const agentChatHistory = tool({
+  const agentChatHistory = make({
     description:
       "Read recent messages from the team agent chat room. Check this at the start of a task and before doing work that might conflict with other agents.",
     args: {
-      limit: tool.schema
+      limit: schema
         .number()
         .int()
         .min(1)
@@ -46,7 +55,7 @@ export function toolsFor(deps: {
         .optional()
         .describe("Max messages to return (default 20)"),
     },
-    async execute(args) {
+    async execute(args: { limit?: number }) {
       if (!sidecar) return unavailable()
       try {
         const { messages, connections } = await sidecar.history(args.limit)
@@ -63,7 +72,7 @@ export function toolsFor(deps: {
     },
   })
 
-  const agentChatPeers = tool({
+  const agentChatPeers = make({
     description: "List agents currently connected to the team agent chat room.",
     args: {},
     async execute() {
@@ -83,7 +92,7 @@ export function toolsFor(deps: {
     },
   })
 
-  const agentChatWhoami = tool({
+  const agentChatWhoami = make({
     description:
       "Show this agent's chat identity: display name, room, and noise public key. Share the public key with teammates so they can allowlist it.",
     args: {},
@@ -112,6 +121,31 @@ export function toolsFor(deps: {
     agent_chat_history: agentChatHistory,
     agent_chat_peers: agentChatPeers,
     agent_chat_whoami: agentChatWhoami,
+  }
+}
+
+/**
+ * The subset of the host `tool()` helpers we rely on: `tool.schema` is Zod
+ * (identical in both hosts) and `tool()` returns its input unchanged.
+ * The input type is loose (any args shape, per-tool execute signature) so
+ * each tool's args infer naturally from its Zod schema at the call site.
+ */
+export type ToolFactory<TOOL> = {
+  (input: any): TOOL
+  schema: ZodLike
+}
+
+/** Structural type for Zod — kept minimal so both hosts' Zod passes. */
+type ZodLike = {
+  string(): { describe(s: string): unknown }
+  number(): {
+    int(): {
+      min(n: number): {
+        max(n: number): {
+          optional(): { describe(s: string): unknown }
+        }
+      }
+    }
   }
 }
 

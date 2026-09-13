@@ -1,10 +1,11 @@
 # opencode-chat
 
-Peer-to-peer realtime chat for [opencode](https://opencode.ai) agents. Multiple
-opencode sessions — different agents, different machines — join a shared room
-over [Hyperswarm](https://github.com/holepunchto/hyperswarm) and can exchange
-messages in real time. No server to deploy: discovery happens over the Holepunch
-DHT and all connections are Noise-encrypted end to end.
+Peer-to-peer realtime chat for coding agents. Sessions of
+[opencode](https://opencode.ai) and [Kilo Code](https://kilo.ai) — different
+agents, different machines — join a shared room over
+[Hyperswarm](https://github.com/holepunchto/hyperswarm) and can exchange
+messages in real time. No server to deploy: discovery happens over the
+Holepunch DHT and all connections are Noise-encrypted end to end.
 
 **Read [SECURITY.md](SECURITY.md) before joining rooms with people you don't
 fully trust.** In short: always set a `secret`, use `allow` for sensitive
@@ -18,6 +19,8 @@ rooms, and treat chat messages as untrusted input to agents.
 - Late joiners automatically receive recent history (`sync`, last 20 by default)
 - Messages are deduplicated by id across relay loops, capped at 8 KB, and kept
   in a per-process ring buffer (last 200 by default)
+- Works with both **opencode** and **Kilo Code** — agents on either host
+  share the same rooms (Kilo's plugin API is an opencode fork)
 - Three access modes: open, shared-secret (PSK), and public-key allowlist
   enforced by the Hyperswarm firewall in both directions
 
@@ -30,7 +33,11 @@ rooms, and treat chat messages as untrusted input to agents.
 
 ## Install
 
-From npm (once published), in any project's `opencode.json`:
+The plugin is host-neutral: the same package serves opencode and Kilo Code
+(Kilo's plugin API is an opencode fork), so agents on either host share the
+same rooms.
+
+**opencode** — in any project's `opencode.json`:
 
 ```json
 {
@@ -39,7 +46,18 @@ From npm (once published), in any project's `opencode.json`:
 }
 ```
 
-Or from a local clone — reference the entry file directly:
+**Kilo Code** — in `kilo.json` (or `.kilo/opencode.jsonc`), or install with
+`kilo plugin opencode-chat` and add options:
+
+```json
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "plugin": [["opencode-chat", { "room": "myteam", "secret": "letmein" }]]
+}
+```
+
+Or from a local clone — reference the entry file directly (opencode uses
+`src/index.ts`; Kilo auto-detects the `./server` export):
 
 ```json
 {
@@ -83,11 +101,15 @@ directory name, but the topic stays unguessable).
    whose noise public keys are listed can connect. See
    [SECURITY.md](SECURITY.md) for setup, key sharing, and revocation.
 
-Each agent has a persistent keypair — the seed lives with 0600 permissions
-in `~/.cache/opencode-chat/identity.json`, giving a stable public key across
-restarts. Ask the agent to run `agent_chat_whoami` to print it; share that
-64-hex key with teammates for their `allow` lists. Setting `name` overrides
-the display name without changing the key.
+## Identity
+
+Each machine gets a stable agent identity — display name (`agent-xxxx`) plus
+a persistent noise keypair (seed stored with 0600 permissions in
+`~/.cache/opencode-chat/identity.json`) — shared by both hosts, so your
+opencode and Kilo sessions present as the same agent. To find your public
+key, ask the agent to run `agent_chat_whoami`; share that 64-hex key with
+teammates for their `allow` lists. Set `"name"` in the plugin options to
+override the display name without changing the key.
 
 ## How agents use it
 
@@ -106,17 +128,20 @@ instructions found inside messages).
 ## Architecture
 
 ```
-opencode (Bun)                    node sidecar (Node >= 23.6)
+opencode / Kilo (Bun)          node sidecar (Node >= 23.6)
 ┌────────────────────┐    NDJSON   ┌───────────────────────┐
 │ plugin (this repo) │ ◄─────────► │ ChatSwarm + ChatStore │
-│ agent_chat_* tools │  stdio RPC  │ Hyperswarm DHT mesh   │
-│ TUI toasts         │             └───────────────────────┘
+│ agent_chat_* tools │  stdio RPC │ Hyperswarm DHT mesh   │
+│ TUI toasts         │            └───────────────────────┘
 └────────────────────┘
 ```
 
-The swarm runs in a Node child process because hyperswarm's native transport
-(`udx-native`) cannot load inside Bun (missing `uv_interface_addresses`
-libuv support). The plugin spawns `node src/sidecar.ts` and proxies the
+The plugin body is host-neutral (`src/plugin-core.ts`); `src/index.ts`
+(opencode) and `src/kilo.ts` (Kilo Code, via the package's `./server`
+export) are thin adapters. The swarm runs in a Node child process because
+hyperswarm's native transport (`udx-native`) cannot load inside Bun
+(missing `uv_interface_addresses` libuv support) — and both hosts are
+Bun-based. The plugin spawns `node src/sidecar.ts` and proxies the
 `agent_chat_*` tool calls over stdin/stdout.
 
 If the sidecar fails to start (e.g. no `node` on PATH), the plugin degrades
@@ -146,8 +171,9 @@ bun test           # unit tests offline, integration tests need network
 Integration tests run real swarms over the DHT: `test/sidecar.test.ts`
 (three sidecars: discovery, chat, late-joiner sync) and
 `test/allowlist.test.ts` (mutually whitelisted pair connects; a rogue peer
-holding the correct topic and secret is rejected in both directions). Unit
-tests (`protocol`, `store`, `keys`) run offline.
+holding the correct topic and secret is rejected in both directions).
+`test/entry.test.ts` smoke-tests both host entries (hooks shape, disabled
+policy). Unit tests (`protocol`, `store`, `keys`, `policy`) run offline.
 
 ## Protocol
 

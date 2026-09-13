@@ -11,6 +11,7 @@ import type { IpcEvent, IpcResponse } from "./ipc.ts"
  */
 
 export type SidecarClientOptions = {
+  /** Node binary to run the sidecar. */
   node: string
   sidecarPath: string
   args: string[]
@@ -26,6 +27,7 @@ type Pending = {
 }
 
 export class SidecarClient {
+  private readonly opts: SidecarClientOptions
   private child: ChildProcessWithoutNullStreams | null = null
   private pending = new Map<string, Pending>()
   private exited = false
@@ -34,7 +36,8 @@ export class SidecarClient {
   private resolveReady!: (value: { room: string; name: string; topicHex: string; publicKeyHex: string }) => void
   private rejectReady!: (err: Error) => void
 
-  constructor(private readonly opts: SidecarClientOptions) {
+  constructor(opts: SidecarClientOptions) {
+    this.opts = opts
     this.ready = new Promise((resolve, reject) => {
       this.resolveReady = resolve
       this.rejectReady = reject
@@ -64,6 +67,25 @@ export class SidecarClient {
     })
     this.child = child
     this.exited = false
+
+    // spawn failures (missing binary, bad cwd) surface here asynchronously;
+    // reject `ready` so the host process never crashes on an unhandled event.
+    child.on("error", (err) => {
+      this.exited = true
+      for (const [, pending] of this.pending) {
+        pending.resolve({ id: "", ok: false, error: "sidecar failed to spawn" })
+      }
+      this.pending.clear()
+      this.opts.onLog?.("sidecar spawn failed", { error: String(err) })
+      if (!this.readySettled) {
+        this.readySettled = true
+        this.rejectReady(
+          new Error(
+            `opencode-chat: failed to spawn the Node sidecar (${String((err as NodeJS.ErrnoException).code ?? err)}). Install Node >= 23.6 or set the \`node\` option.`,
+          ),
+        )
+      }
+    })
 
     const rl = createInterface({ input: child.stdout })
     rl.on("line", (line: string) => {

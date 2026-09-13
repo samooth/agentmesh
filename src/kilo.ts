@@ -1,14 +1,13 @@
-import { tool } from "@opencode-ai/plugin"
-import type { Plugin, PluginInput, Hooks } from "@opencode-ai/plugin"
-import { startChat, type PluginOptions } from "./plugin-core.ts"
-
-export type { PluginOptions }
+import { tool } from "@kilocode/plugin/tool"
+import type { Plugin, PluginInput, Hooks } from "@kilocode/plugin"
+import { startChat } from "./plugin-core.ts"
 
 /**
- * opencode entry. opencode plugin modules export a plugin function
- * (default or named) returning a Hooks object.
+ * Kilo Code entry. Kilo's canonical plugin module shape is a descriptor
+ * with an `id` and a `server` plugin function; the package exposes this
+ * via exports["./server"] so `kilo plugin opencode-chat` detects it.
  */
-export const ChatPlugin: Plugin = async (input: PluginInput, options) => {
+const server: Plugin = async (input: PluginInput, options) => {
   const core = await startChat(input, options, {
     tool,
     log: async (message, extra) => {
@@ -45,4 +44,4 @@ export const ChatPlugin: Plugin = async (input: PluginInput, options) => {
   return hooks
 }
 
-export default ChatPlugin
+export default { id: "opencode-chat", server }

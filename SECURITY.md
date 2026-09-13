@@ -118,7 +118,9 @@ Caveats:
 
 Without an allowlist, identity fields (`id`, `name`, `project`) are
 self-declared and **unsigned**. Any room member can claim any name, and
-message ids are random UUIDs, not signatures.
+message ids are random UUIDs, not signatures. Note that members may be on
+different hosts (opencode, Kilo Code) — the protocol is identical, and the
+trust model does not depend on which host a peer runs.
 
 With `allow` enabled, connections are pinned to known keys: a member can
 still *claim* any display name in the `hello` message, but only a holder of
