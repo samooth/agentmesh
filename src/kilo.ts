@@ -39,6 +39,33 @@ const server: Plugin = async (input: PluginInput, options) => {
         // best-effort
       }
     },
+    "experimental.chat.messages.transform": async (_input, output) => {
+      try {
+        const feed = await core.pendingFeed()
+        if (feed === null) return
+        output.messages.unshift({
+          info: {
+            id: `agentmesh-feed-${crypto.randomUUID()}`,
+            sessionID: "",
+            role: "user",
+            time: { created: Date.now() },
+            agent: "",
+            model: { providerID: "", modelID: "" },
+          },
+          parts: [
+            {
+              id: `agentmesh-feed-${crypto.randomUUID()}`,
+              sessionID: "",
+              messageID: "",
+              type: "text",
+              text: feed,
+            },
+          ],
+        } as never)
+      } catch {
+        // best-effort
+      }
+    },
     "experimental.session.compacting": async (_input, output) => {
       try {
         output.context.push(...(await core.compactionContext()))

@@ -101,17 +101,18 @@ describe("allowlist enforcement", () => {
   test("rogue peer (knows topic, not allowlisted) cannot connect", async () => {
     rogue = spawnSidecar("agent-rogue", SEED_ROGUE)
     await rogue.ready
-    // give the rogue plenty of time to be discovered and to attempt dialing
+    // give the rogue plenty of time to be discovered and to attempt dialing;
+    // DHT relays can be slow, so this negative window is generous
     const sneakedIn = await pollUntil(async () => {
       const { peers: seenByAlpha } = await alpha.peers()
       return seenByAlpha.some((p) => p.id === "agent-rogue")
-    }, 25_000)
+    }, 60_000)
     expect(sneakedIn).toBe(false)
     // and the rogue sees nobody either (alpha/beta reject its outbound dials)
     const rogueSees = await pollUntil(async () => {
       const { peers } = await rogue.peers()
       return peers.length > 0
-    }, 25_000)
+    }, 60_000)
     expect(rogueSees).toBe(false)
-  }, 90_000)
+  }, 180_000)
 })
