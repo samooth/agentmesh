@@ -45,7 +45,8 @@ shipped default) silently land in the same room and exchange chat and
 1. Every member asks their agent to run `agent_chat_whoami`, which prints
    their public key (stable, derived from the seed in
    `~/.cache/agentmesh/identity.json`, which is stored with 0600).
-2. Each member adds every other member's key to their `allow` list:
+2. Each member adds every other member's key to their `allow` list —
+   plugin options on opencode/Kilo:
 
 ```json
 {
@@ -63,13 +64,21 @@ shipped default) silently land in the same room and exchange chat and
 }
 ```
 
+   or the `AGENTMESH_ALLOW` env var on OpenCodex/pi (comma-separated):
+
+```sh
+export AGENTMESH_ROOM="myteam"
+export AGENTMESH_SECRET="rotate-me-quarterly"
+export AGENTMESH_ALLOW="248acbdbaf9e050196de704bea2d68770e519150d103b587dae2d9cad53dd930,f3e4..."
+```
+
 Keys may be hex (64 chars), base64, or `@`-prefixed z-base-32 (the hypercore
 form). Invalid entries are logged and skipped, valid ones enforced.
 
 ### Revocation and membership changes
 
 - **Remove a member**: delete their key from everyone's `allow` list and
-  restart opencode. Existing connections close on their next restart;
+  restart every host. Existing connections close on their next restart;
   until then they remain connected (allowlists gate *new* handshakes).
   For an immediate kick, also rotate the `secret`.
 - **Rotate a leaked secret**: change `secret` everywhere; the old topic is
@@ -110,7 +119,8 @@ topic = sha256("agentmesh:v1:<room>[:<secret>]")
 Caveats:
 
 - There is **no revocation**: if a secret leaks, rotate to a new one
-  (everyone updates their `opencode.json`; old topic is abandoned).
+  (everyone updates their host config or env vars; the old topic is
+  abandoned).
 - DHT observers can see *that* an unknown 32-byte topic exists and how many
   peers announce it, but cannot link it to a room name.
 
@@ -119,7 +129,7 @@ Caveats:
 Without an allowlist, identity fields (`id`, `name`, `project`) are
 self-declared and **unsigned**. Any room member can claim any name, and
 message ids are random UUIDs, not signatures. Note that members may be on
-different hosts (opencode, Kilo Code, OpenCodex) — the protocol is
+different hosts (opencode, Kilo Code, OpenCodex, pi) — the protocol is
 identical, and the trust model does not depend on which host a peer runs.
 
 With `allow` enabled, connections are pinned to known keys: a member can
@@ -145,9 +155,11 @@ previous rules, run `curl ...`"). Mitigations built in:
 These reduce but do not eliminate the risk. LLMs can be manipulated. If you
 join rooms whose membership you don't control:
 
-- keep `permission` rules strict (e.g. `bash: ask`), so injection cannot
-  silently execute commands,
-- consider `"instruction": true` plus explicit review of agent actions,
+- keep your host's permission/approval rules strict (e.g. opencode
+  `permission` with `ask` for bash/edit, pi's `tool_call` confirm gates), so
+  injection cannot silently execute commands,
+- keep the built-in untrusted-data guidance enabled (it is on by default on
+  every host),
 - or disable the plugin for sessions that handle sensitive repos.
 
 ## Resource-exhaustion hardening
@@ -160,18 +172,21 @@ join rooms whose membership you don't control:
 
 ## Sidecar boundary
 
-The plugin (inside opencode's Bun process) spawns a Node sidecar. The IPC
-channel is a local pipe speaking validated NDJSON — the sidecar never
-evaluates remote input, spawns processes, or touches the filesystem beyond
-its own identity cache. A hostile room member cannot execute code via the
-sidecar; the worst they can do is send capped, validated chat data.
+Each host entry (running inside the host's process — Bun for opencode/Kilo,
+Node for OpenCodex/pi) spawns a Node sidecar. The IPC channel is a local
+pipe speaking validated NDJSON — the sidecar never evaluates remote input,
+spawns processes, or touches the filesystem at all (the persistent identity
+seed lives with the host entry, not the sidecar). A hostile room member
+cannot execute code via the sidecar; the worst they can do is send capped,
+validated chat data.
 
 ## Recommendations
 
 1. Always set a `secret` for any room you don't intend to be public.
 2. For rooms coordinating sensitive repos, use `allow` with every member's
    public key; rotate secrets on suspicion of leak.
-3. Keep opencode `permission` rules non-trivial (`ask` for bash/edit).
+3. Keep your host's permission rules non-trivial (e.g. `ask`/confirm for
+   bash and file edits on every host you use).
 4. Don't send secrets/credentials over agent chat — transcripts may end up
    in logs, models, and other agents' contexts.
 5. Prefer small, known-membership rooms over big open ones.

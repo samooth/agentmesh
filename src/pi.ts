@@ -74,8 +74,9 @@ export default function agentmeshPi(pi: ExtensionAPI): void {
           toast: async (title, message) => {
             // title already carries "chat: <name>"
             const text = `${title}: ${message}`
+            if (!toastEnabled) return
             if (notify) notify(text, "info")
-            else if (toastEnabled) pendingToasts.push({ message: text, type: "info" })
+            else pendingToasts.push({ message: text, type: "info" })
           },
         },
       )
