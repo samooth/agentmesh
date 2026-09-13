@@ -1,6 +1,6 @@
 {
   "name": "agentmesh",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Peer-to-peer realtime chat for opencode and Kilo Code agents via Hyperswarm",
   "license": "MIT",
   "author": "Tomás Díaz <tomas@bsv.direct>",
