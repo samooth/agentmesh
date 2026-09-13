@@ -2,9 +2,9 @@ import type { ChatMessage } from "./protocol.ts"
 import type { PeerInfo } from "./store.ts"
 
 /**
- * Wire contract between the opencode plugin (runs inside opencode's Bun
- * process) and the sidecar process (runs under Node, owns the Hyperswarm
- * instance). NDJSON over the sidecar's stdin/stdout.
+ * Wire contract between the plugin (runs inside the host's process) and the
+ * sidecar process (runs under Node, owns the Hyperswarm instance). NDJSON
+ * over the sidecar's stdin/stdout.
  *
  * The split exists because hyperswarm's native transport (udx-native) cannot
  * load inside Bun (missing libuv uv_interface_addresses support), so the
@@ -13,9 +13,10 @@ import type { PeerInfo } from "./store.ts"
 
 export type IpcRequest =
   | { id: string; cmd: "send"; text: string }
-  | { id: string; cmd: "history"; limit?: number }
+  | { id: string; cmd: "history"; limit?: number; afterId?: string }
   | { id: string; cmd: "peers" }
   | { id: string; cmd: "whoami" }
+  | { id: string; cmd: "allow"; keys: string | string[] }
 
 export type IpcSendResult = { reached: number }
 export type IpcHistoryResult = { messages: ChatMessage[]; connections: number }
@@ -27,8 +28,14 @@ export type IpcWhoamiResult = {
   publicKeyHex: string
   allowCount: number
 }
+export type IpcAllowResult = { active: number; kicked: number }
 
-export type IpcResult = IpcSendResult | IpcHistoryResult | IpcPeersResult | IpcWhoamiResult
+export type IpcResult =
+  | IpcSendResult
+  | IpcHistoryResult
+  | IpcPeersResult
+  | IpcWhoamiResult
+  | IpcAllowResult
 
 export type IpcResponse =
   | { id: string; ok: true; result: IpcResult }

@@ -12,8 +12,9 @@ fully trust.
 | DHT observer correlating you    | Partially protected     | Topic hash is visible to DHT nodes (see below)     |
 | Stranger joining your room      | Protected **if** you set `secret` | The secret is an invite key mixed into the topic hash |
 | Stranger joining despite secret | Protected with `allow`  | Pubkey allowlist enforced by the Hyperswarm firewall, both directions |
-| Room member spoofing another    | Partially protected with `allow` | Display names are self-declared, but connections are pinned to known keys |
+| Room member spoofing another    | Detectable with signing | Messages are Ed25519-signed; verified senders show ✓ + key fingerprints |
 | Malicious room member           | Mitigated, not eliminated | Messages reach agent context; see prompt injection |
+| Message flooding / history churn | Protected               | Per-peer token-bucket rate limit; flooders dropped + cooldown-banned |
 | Sidecar process escape          | Not applicable          | Sidecar only speaks NDJSON; no eval/shell surface   |
 | Local identity file tampering   | Low impact              | Only affects your display name / key (file is 0600) |
 
@@ -77,23 +78,30 @@ form). Invalid entries are logged and skipped, valid ones enforced.
 
 ### Revocation and membership changes
 
-- **Remove a member**: delete their key from everyone's `allow` list and
-  restart every host. Existing connections close on their next restart;
-  until then they remain connected (allowlists gate *new* handshakes).
-  For an immediate kick, also rotate the `secret`.
+- **Remove a member immediately**: use the `allowFile` option (a JSON file
+  of keys, watched live). Delete the key from the file — every watcher
+  kicks the removed peer's existing connections within ~100ms, no restart
+  needed. This replaces the old "rotate the secret to kick" workaround.
+- **Remove a member (static lists)**: with plain `allow`, delete their key
+  from everyone's `allow` list and restart every host. Allowlists gate
+  *new* handshakes, so until the restart they remain connected; for an
+  immediate kick use `allowFile` or rotate the `secret`.
 - **Rotate a leaked secret**: change `secret` everywhere; the old topic is
   abandoned (topics are 256-bit hashes; nobody can follow you to the new
   one without the new secret).
 - **Change your own key**: delete `~/.cache/agentmesh/identity.json`
   and restart; then redistribute your new pubkey (it changes the keypair).
+  Note your signing key is the same keypair — old signatures stop
+  verifying, which is correct since the identity changed.
 
 ### What the allowlist does NOT do
 
-- It authenticates *connections*, not *messages*: a whitelisted member can
-  still claim any display name in the `hello`. Within a whitelisted room,
-  "who sent this" is only as trustworthy as your members' key hygiene.
-- There is no per-message signing; history sync replays are
-  indistinguishable from live sends by design.
+- It authenticates *connections*, not intent: a whitelisted member is still
+  a person you trust with your room. Signatures (below) make *authorship*
+  verifiable, not *judgment* sound.
+- Per-message signing closes the name-spoofing gap, but only when peers
+  have an out-of-band key→name mapping: without it, "which human is behind
+  key `abcd1234…`" still relies on social verification.
 
 ## What the encryption gives you
 
@@ -126,17 +134,27 @@ Caveats:
 
 ## Trust between room members
 
-Without an allowlist, identity fields (`id`, `name`, `project`) are
-self-declared and **unsigned**. Any room member can claim any name, and
-message ids are random UUIDs, not signatures. Note that members may be on
-different hosts (opencode, Kilo Code, OpenCodex, pi) — the protocol is
-identical, and the trust model does not depend on which host a peer runs.
+Message **authorship is cryptographically verifiable**: every chat message
+carries an Ed25519 signature over `id|from|ts|text`, produced with the
+sender's persistent identity keypair — which is the *same keypair* as their
+noise transport key (hypercore-crypto keypairs are ed25519). Receivers
+verify signatures against the connection's actual public key (never a
+self-declared field), so:
 
-With `allow` enabled, connections are pinned to known keys: a member can
-still *claim* any display name in the `hello` message, but only a holder of
-a whitelisted keypair can speak at all, and each key appears once in your
-peers list. If members publish a key→name mapping out of band, impersonation
-inside the room becomes detectable.
+- a member can claim any display `name`, but the message is pinned to the
+  key that sent it — `agent_chat_peers` and history output show key
+  fingerprints (`[key: abcd1234…]`) and a ✓ marker for verified messages,
+  so with an out-of-band key→name mapping, impersonation inside the room
+  is detectable,
+- a message with an invalid signature (or a signature from a different key
+  than its connection) is dropped and logged,
+- unsigned messages from old/other clients still interoperate and are
+  labeled "(unsigned)".
+
+Without an allowlist, identity fields (`id`, `name`, `project`) remain
+self-declared — but signatures still pin each message to a stable key.
+Members may be on different hosts (opencode, Kilo Code, OpenCodex, pi); the
+protocol and trust model are identical across hosts.
 
 If you need stronger guarantees, don't rely on this protocol for them —
 verify consequential decisions out of band.
@@ -166,9 +184,14 @@ join rooms whose membership you don't control:
 
 - Per-message text capped at 8 KB, names 128 B, sync batches 50 messages.
 - Per-connection receive buffer capped at 512 KB; overruns drop the peer.
+- **Per-peer inbound rate limit** (token bucket, ~30-message burst then 5/s
+  refill): a flooding peer is dropped and banned for a cooldown (60s), so
+  a flood cannot churn the ring buffer and evict real history.
 - Ring buffer caps stored history (200 by default).
 - Malformed lines are silently dropped; no parse can throw into the socket
   handler.
+- Optional history persistence (JSONL) is append-only and replayed with
+  full validation at boot (capped to the ring buffer size).
 
 ## Sidecar boundary
 

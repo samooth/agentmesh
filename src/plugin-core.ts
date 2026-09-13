@@ -40,6 +40,25 @@ export type PluginOptions = {
   instruction?: boolean
   /** Path to the node binary used to run the swarm sidecar. Default: "node" from PATH. */
   node?: string
+  /**
+   * Live allowlist file (JSON: array or `{ "allow": [...] }`). Watched for
+   * changes; edits kick removed peers immediately, no restart needed.
+   * When set, it overrides the static `allow` option.
+   */
+  allowFile?: string
+  /**
+   * Persist chat history to a JSONL file so it survives sidecar restarts
+   * (crash auto-restart, host restarts). Default: a file under
+   * ~/.cache/agentmesh/history/ keyed by topic. Set to "" to disable.
+   */
+  persist?: string
+  /**
+   * Additional rooms to join from the same session. Each entry derives its
+   * own topic and runs its own sidecar. Values: a secret string ("" = open)
+   * or `{ secret?, allow?, allowFile? }`. Tools accept an optional `room`
+   * argument to pick one; without it they use the primary room.
+   */
+  rooms?: Record<string, string | { secret?: string; allow?: string | string[]; allowFile?: string }>
 }
 
 export type HostAdapter<TOOL> = {
@@ -67,6 +86,12 @@ export type CoreHooks<TOOL> = {
   /** Receives the system prompt array of the running session to append to. */
   systemTransform: (push: (text: string) => void) => Promise<void>
   dispose: () => Promise<void>
+  /**
+   * Context lines injected when the host compacts the session (opencode/
+   * Kilo `experimental.session.compacting`): a digest of recent chat so
+   * coordination context survives compaction. Null when chat is disabled.
+   */
+  compactionContext: () => Promise<string[]>
 }
 
 const IDENTITY_DIR = "agentmesh"
@@ -179,6 +204,7 @@ export async function startChat<TOOL>(
         if (instructionEnabled) push(systemInstructionDisabled(policy.reason))
       },
       dispose: async () => {},
+      compactionContext: async () => [],
     }
   }
 
@@ -197,9 +223,13 @@ export async function startChat<TOOL>(
       ? opts.node
       : process.env.AGENTMESH_NODE ?? "node"
 
-  const incoming = (msg: ChatMessage) => {
+  const incoming = (msg: ChatMessage, room: string) => {
     if (!toastEnabled) return
-    void host.toast(`chat: ${sanitizeForDisplay(msg.name).slice(0, 64)}`, truncate200(msg.text))
+    const label = room ? `chat [${room}]` : "chat"
+    void host.toast(
+      `${label}: ${sanitizeForDisplay(msg.name).slice(0, 64)}`,
+      truncate200(msg.text),
+    )
   }
 
   let startupError: string | null = null
@@ -208,6 +238,28 @@ export async function startChat<TOOL>(
   const { keys: allowKeys, invalid: invalidKeys } = parseAllowList(opts.allow)
   if (invalidKeys.length > 0) {
     await log("ignoring invalid allowlist entries", { invalid: invalidKeys })
+  }
+
+  // Live allowlist file: AGENTMESH_ALLOW_FILE env var or the allowFile
+  // option. The sidecar watches it and applies edits live (revocation
+  // kicks removed peers without a restart).
+  const allowFileArg =
+    typeof opts.allowFile === "string" && opts.allowFile.length > 0
+      ? opts.allowFile
+      : process.env.AGENTMESH_ALLOW_FILE
+
+  // History persistence: JSONL per topic so auto-restarted sidecars keep
+  // history. Disabled with persist: "" (or AGENTMESH_PERSIST="").
+  const persistOpt =
+    typeof opts.persist === "string"
+      ? opts.persist
+      : (process.env.AGENTMESH_PERSIST ?? "default")
+  const persistArgFor = (topic: Buffer): string | null => {
+    if (persistOpt === "") return null
+    if (persistOpt === "default") {
+      return join(homedir(), ".cache", "agentmesh", "history", `${topic.toString("hex")}.jsonl`)
+    }
+    return persistOpt
   }
 
   // Item 10: precheck the Node binary once. A too-old Node surfaces as a raw
@@ -220,90 +272,177 @@ export async function startChat<TOOL>(
     await log("sidecar startup failed", { error: startupError })
   }
 
-  const sidecarArgs = (): string[] => [
-    "--topic", topic.toString("hex"),
-    "--id", identity.id,
-    "--name", identity.name,
-    "--project", project,
-    "--room", room,
-    "--seed", identity.seed,
-    "--history-limit", String(historyLimit),
-    "--sync-count", String(syncCount),
-    ...(allowKeys.size > 0 ? ["--allow", [...allowKeys].join(",")] : []),
-  ]
+  // -------------------------------------------------------------------------
+  // Multi-room: one sidecar per room, spawned lazily on first use. The
+  // primary room is always spawned; extra rooms (`rooms` option) wait for
+  // their first tool call that names them.
+  // -------------------------------------------------------------------------
 
-  const spawnSidecar = (): SidecarClient =>
-    new SidecarClient({
+  type RoomConfig = { secret?: string; allowKeys: Set<string>; allowFile?: string }
+
+  const primaryConfig: RoomConfig = {
+    secret: secret ?? undefined,
+    allowKeys,
+    allowFile: allowFileArg,
+  }
+
+  const roomConfigs = new Map<string, RoomConfig>([[room, primaryConfig]])
+  for (const [name, cfg] of Object.entries(opts.rooms ?? {})) {
+    if (typeof name !== "string" || name.length === 0 || name === room) continue
+    const c: RoomConfig =
+      typeof cfg === "string"
+        ? { secret: cfg || undefined, allowKeys: new Set<string>() }
+        : {
+            secret: cfg.secret || undefined,
+            allowKeys: parseAllowList(cfg.allow).keys,
+            allowFile: cfg.allowFile,
+          }
+    roomConfigs.set(name, c)
+  }
+
+  const sidecars = new Map<string, SidecarClient>()
+  const spawning = new Map<string, Promise<SidecarClient | null>>()
+
+  const buildSidecar = (roomName: string, cfg: RoomConfig): SidecarClient => {
+    const roomSecret = cfg.secret
+    const topicBuffer = deriveTopic(roomName, roomSecret)
+    return new SidecarClient({
       node: nodeBin,
       sidecarPath,
       cwd: input.directory,
-      args: sidecarArgs(),
-      onChat: incoming,
+      args: [
+        "--topic", topicBuffer.toString("hex"),
+        "--id", identity.id,
+        "--name", identity.name,
+        "--project", project,
+        "--room", roomName,
+        "--seed", identity.seed,
+        "--history-limit", String(historyLimit),
+        "--sync-count", String(syncCount),
+        ...(cfg.allowKeys.size > 0 ? ["--allow", [...cfg.allowKeys].join(",")] : []),
+        ...(cfg.allowFile ? ["--allow-file", cfg.allowFile] : []),
+        ...(persistArgFor(topicBuffer)
+          ? ["--persist", persistArgFor(topicBuffer)!]
+          : []),
+      ],
+      onChat: (msg) => incoming(msg, roomName),
       onPeers: () => {},
-      onLog: (message, extra) => void log(message, extra),
+      onLog: (message, extra) => void log(`[${roomName}] ${message}`, extra),
+    })
+  }
+
+  const wrapRoom = (raw: SidecarClient, roomName: string): SidecarClient =>
+    wrapResilient({
+      initial: raw,
+      respawn: () => buildSidecar(roomName, roomConfigs.get(roomName) ?? primaryConfig),
+      onRestart: async (info) => {
+        await log("sidecar restarted after exit", { room: info.room, topic: info.topicHex })
+      },
+      onRestartFailed: async (error) => {
+        await log("sidecar restart failed", { room: roomName, error })
+      },
     })
 
-  let sidecar: SidecarClient | null = null
+  /** Get (and lazily spawn) the sidecar for a room; null when unknown. */
+  const sidecarFor = (roomName: string): Promise<SidecarClient | null> => {
+    const cfg = roomConfigs.get(roomName)
+    if (!cfg) return Promise.resolve(null)
+    const existing = sidecars.get(roomName)
+    if (existing) return Promise.resolve(existing)
+    if (startupError) return Promise.resolve(null)
+    let p = spawning.get(roomName)
+    if (!p) {
+      p = (async () => {
+        try {
+          const raw = buildSidecar(roomName, cfg)
+          const info = await raw.ready
+          const wrapped = wrapRoom(raw, roomName)
+          sidecars.set(roomName, wrapped)
+          await log(`joined room "${info.room}" as "${info.name}"`, {
+            topic: info.topicHex,
+            publicKey: info.publicKeyHex,
+            historyLimit,
+            syncCount,
+            allowlisted: cfg.allowKeys.size,
+            access: cfg.secret ? "psk" : "open",
+          })
+          if (!cfg.secret && cfg.allowKeys.size === 0 && cfg.allowFile === undefined) {
+            await log(`room "${roomName}" has no secret and no allowlist: anyone who learns the topic can join`, {
+              room: roomName,
+            })
+          }
+          return wrapped
+        } catch (err) {
+          const msg = String(err instanceof Error ? err.message : err)
+          await log("sidecar startup failed", { room: roomName, error: msg })
+          return null
+        } finally {
+          spawning.delete(roomName)
+        }
+      })()
+      spawning.set(roomName, p)
+    }
+    return p
+  }
+
+  // primary room: spawn eagerly (existing behavior)
+  let primarySidecar: SidecarClient | null = null
   if (!startupError) {
     try {
-      sidecar = spawnSidecar()
-      const info = await sidecar.ready
-      await log(`joined room "${info.room}" as "${info.name}"`, {
-        topic: info.topicHex,
-        publicKey: info.publicKeyHex,
-        historyLimit,
-        syncCount,
-        allowlisted: allowKeys.size,
-        access: policy.openMode ? "open" : "psk",
-      })
-      if (policy.openMode && allowKeys.size === 0) {
-        await log("room has no secret and no allowlist: anyone who learns the topic can join", {
-          room,
-        })
-      }
+      primarySidecar = await sidecarFor(room)
+      if (!primarySidecar) throw new Error(`room "${room}" could not start`)
     } catch (err) {
       startupError = String(err instanceof Error ? err.message : err)
-      const dead = sidecar
-      sidecar = null
-      await dead?.destroy().catch(() => {})
       await log("sidecar startup failed", { error: startupError })
     }
   }
 
-  /**
-   * Resilient sidecar proxy (item 9): if the sidecar process dies
-   * mid-session, the next tool call respawns it instead of reporting
-   * "unavailable" forever. The proxy re-exposes the full SidecarClient
-   * surface plus a ready promise that reflects the live instance.
-   */
-  const resilient = sidecar
-    ? wrapResilient({
-        initial: sidecar,
-        respawn: () => spawnSidecar(),
-        onRestart: async (info) => {
-          await log("sidecar restarted after exit", {
-            room: info.room,
-            topic: info.topicHex,
-          })
-        },
-        onRestartFailed: async (error) => {
-          startupError = error
-          await log("sidecar restart failed", { error })
-        },
-      })
-    : null
+  /** Router used by tools: picks the sidecar for a requested room name,
+   *  spawning extra rooms lazily on first use. */
+  const router = async (roomName?: string): Promise<SidecarClient | null> => {
+    if (roomName === undefined || roomName.length === 0) return primarySidecar
+    if (sidecars.has(roomName)) return sidecars.get(roomName) ?? null
+    const spawned = await sidecarFor(roomName)
+    return spawned ?? primarySidecar
+  }
 
-  const finalSidecar: SidecarClient | null = resilient
+  const roomsList = [...roomConfigs.keys()]
+
   const finalError = startupError
   return {
-    tool: toolsFor({ sidecar: finalSidecar, room, startupError: finalError }, host.tool),
+    tool: toolsFor(
+      { sidecar: primarySidecar, room, startupError: finalError, router, rooms: roomsList },
+      host.tool,
+    ),
     systemTransform: async (push) => {
-      if (instructionEnabled) push(systemInstruction(room, finalError))
+      if (instructionEnabled) {
+        push(systemInstruction(roomsList.length > 1 ? roomsList.join(", ") : room, finalError))
+      }
     },
     dispose: async () => {
-      await finalSidecar?.destroy().catch(() => {})
+      await Promise.all([...sidecars.values()].map((s) => s.destroy().catch(() => {})))
+    },
+    compactionContext: async () => {
+      if (!primarySidecar) return []
+      try {
+        const { messages } = await primarySidecar.history(15)
+        if (messages.length === 0) return []
+        const lines = messages.map(
+          (m) => `[${formatTs(m.ts)}] ${sanitizeForDisplay(m.name)}: ${sanitizeForDisplay(m.text).slice(0, 200)}`,
+        )
+        return [
+          `Recent team agent chat from room "${room}" (this context survives compaction so other agents' coordination notes are not lost):`,
+          ...lines,
+        ]
+      } catch {
+        return []
+      }
     },
   }
+}
+
+function formatTs(ts: number): string {
+  return new Date(ts).toISOString().slice(11, 19)
 }
 
 type SidecarInfo = { room: string; name: string; topicHex: string; publicKeyHex: string }
@@ -346,11 +485,14 @@ function wrapResilient(deps: {
 
   const proxy: SidecarClient = {
     send: (text: string) => ensureLive().then((c) => c.send(text)),
-    history: (limit?: number) => ensureLive().then((c) => c.history(limit)),
+    history: (limit?: number, afterId?: string) =>
+      ensureLive().then((c) => c.history(limit, afterId)),
     peers: () => ensureLive().then((c) => c.peers()),
     whoami: () => ensureLive().then((c) => c.whoami()),
+    allow: (keys: string | string[]) => ensureLive().then((c) => c.allow(keys)),
     isDead: () => current.isDead(),
     lastExitCode: () => current.lastExitCode(),
+    stderrTail: () => current.stderrTail(),
     destroy: async () => {
       restarting = null
       await current.destroy()

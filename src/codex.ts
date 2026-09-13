@@ -81,6 +81,10 @@ function definitionFor(name: ToolName): {
                 type: "string",
                 description: "Message to send to the room (plain text)",
               },
+              room: {
+                type: "string",
+                description: "Room to send to (default: the primary configured room)",
+              },
             },
             required: ["text"],
           },
@@ -101,6 +105,15 @@ function definitionFor(name: ToolName): {
                 maximum: 200,
                 description: "Max messages to return (default 20)",
               },
+              after_id: {
+                type: "string",
+                description:
+                  "Only return messages newer than this message id (cursor from a previous call)",
+              },
+              room: {
+                type: "string",
+                description: "Room to read from (default: the primary configured room)",
+              },
             },
           },
         },
@@ -111,7 +124,15 @@ function definitionFor(name: ToolName): {
         function: {
           name: fnName,
           description: DESCRIPTIONS[name].full,
-          parameters: { type: "object", properties: {} },
+          parameters: {
+            type: "object",
+            properties: {
+              room: {
+                type: "string",
+                description: "Room to act on (default: the primary configured room)",
+              },
+            },
+          },
         },
       }
   }

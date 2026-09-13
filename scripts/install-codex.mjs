@@ -27,8 +27,8 @@
 import { spawnSync } from "node:child_process"
 import { cp, mkdir, mkdtemp, rm, stat, symlink, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
-import { dirname, join, resolve } from "node:path"
-import { tmpdir } from "node:os"
+import { dirname, join, relative, resolve, sep } from "node:path"
+import { homedir, tmpdir } from "node:os"
 import { fileURLToPath } from "node:url"
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
@@ -43,8 +43,9 @@ function argValue(name, fallback) {
   return fallback
 }
 
-const pluginsDir = argValue("--plugins-dir", `${process.env.HOME}/.open-codex/plugins`)
-const entry = argValue("--entry", resolve(repoRoot, "src/codex.ts"))
+// homedir() works on Windows too (env HOME is unix-flavored)
+const pluginsDir = argValue("--plugins-dir", join(homedir(), ".open-codex", "plugins"))
+const entry = argValue("--entry", resolve(repoRoot, "src", "codex.ts"))
 
 // ---------------------------------------------------------------------------
 // 1. Locate a tsc binary: the checkout's own devDependency first.
@@ -141,26 +142,61 @@ export default {
 }
 `
 
-  for (const [file, tool] of STUBS) {
-    await writeFile(`${pluginsDir}/${file}`, TEMPLATE(tool), "utf8")
-    console.log(`wrote ${pluginsDir}/${file}`)
-  }
-  // The compiled bundle spawns `node .../agentmesh-codex/sidecar.js`, which
-  // resolves hyperswarm/hypercore-crypto via node_modules lookup. Link the
-  // checkout's node_modules into the bundle dir so the sidecar can run
-  // without a separate install step. (Skipped when the bundle already sits
-  // inside a tree with node_modules above it.)
-  const nmDir = join(bundleDir, "node_modules")
+for (const [file, tool] of STUBS) {
+  await writeFile(join(pluginsDir, file), TEMPLATE(tool), "utf8")
+  console.log(`wrote ${join(pluginsDir, file)}`)
+}
+// The compiled bundle spawns `node .../agentmesh-codex/sidecar.js`, which
+// resolves hyperswarm/hypercore-crypto via node_modules lookup. Link the
+// checkout's node_modules into the bundle dir so the sidecar can run
+// without a separate install step. Symlinks may be unavailable (Windows
+// without developer mode); fall back to copying the runtime deps.
+const nmDir = join(bundleDir, "node_modules")
+try {
+  await stat(nmDir)
+} catch {
+  let linked = false
   try {
-    await stat(nmDir)
+    await symlink(join(repoRoot, "node_modules"), nmDir, "dir")
+    linked = true
+    console.log(`linked ${join(repoRoot, "node_modules")} for the sidecar runtime`)
   } catch {
-    await symlink(join(repoRoot, "node_modules"), nmDir, "dir").catch(() => {})
-    if (await stat(nmDir).then(() => true, () => false)) {
-      console.log(`linked ${repoRoot}/node_modules for the sidecar runtime`)
-    } else {
-      console.warn(`warning: could not link node_modules; the sidecar may fail to resolve hyperswarm`)
+    // fall back to copying just the runtime deps of the sidecar graph
+    try {
+      await cp(join(repoRoot, "node_modules"), nmDir, {
+        recursive: true,
+        verbatimSymlinks: true,
+        dereference: true,
+        filter: (src) => {
+          const rel = relative(join(repoRoot, "node_modules"), src)
+          const top = rel.split(sep)[0] ?? ""
+          return (
+            rel === "" ||
+            top === "hyperswarm" ||
+            top === "hypercore-crypto" ||
+            top === "udx-native" ||
+            top === "sodium-native" ||
+            top === "b4a" ||
+            top === "compact-encoding" ||
+            top === "dht-rpc" ||
+            top === "hyperswarm-utils" ||
+            top === "noise-curve-ed" ||
+            top === "protocol-noise" ||
+            top === "bare"
+          )
+        },
+      })
+      console.log("copied sidecar runtime deps (symlink unavailable)")
+    } catch {
+      console.warn(
+        "warning: could not link or copy node_modules; the sidecar may fail to resolve hyperswarm",
+      )
     }
   }
+  if (!linked) {
+    // nothing extra; messages already printed
+  }
+}
 console.log(`wrote ${bundleDir}/ (compiled bundle, loads under Node >= 22)`)
 console.log(`\nagentmesh tools installed for OpenCodex.`)
 console.log(`Set AGENTMESH_ROOM (and AGENTMESH_SECRET for non-public rooms) before starting open-codex.`)

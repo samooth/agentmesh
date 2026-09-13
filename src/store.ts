@@ -5,6 +5,10 @@ export type PeerInfo = {
   name: string
   project: string
   connectedAt: number
+  /** Noise public key of the connection (hex), when known. Displayed as a
+   *  fingerprint so impersonation is detectable with an out-of-band
+   *  key→name mapping (see SECURITY.md). */
+  key?: string
 }
 
 export class ChatStore {
@@ -54,16 +58,43 @@ export class ChatStore {
     return this.seen.has(id)
   }
 
-  history(limit: number): ChatMessage[] {
-    return this.messages.slice(Math.max(0, this.messages.length - limit))
+  history(limit: number, afterId?: string): ChatMessage[] {
+    const all = this.messages
+    if (afterId !== undefined) {
+      const idx = all.findIndex((m) => m.id === afterId)
+      // cursor not found (e.g. evicted): fall back to the newest `limit`
+      if (idx === -1) {
+        return all.slice(Math.max(0, all.length - limit))
+      }
+      return all.slice(idx + 1, idx + 1 + limit)
+    }
+    return all.slice(Math.max(0, all.length - limit))
   }
 
   recentForSync(count: number): ChatMessage[] {
     return this.messages.slice(Math.max(0, this.messages.length - count))
   }
 
+  /** Appends a message bypassing dedupe listeners — used by history
+   *  persistence replay at boot, where notifications are not wanted. */
+  addManySilently(msgs: ChatMessage[]): number {
+    let added = 0
+    for (const msg of msgs) {
+      if (this.seen.has(msg.id)) continue
+      this.seen.add(msg.id)
+      this.messages.push(msg)
+      if (this.messages.length > this.capacity) {
+        const dropped = this.messages.length - this.capacity
+        for (const m of this.messages.splice(0, dropped)) this.seen.delete(m.id)
+      }
+      added++
+    }
+    return added
+  }
+
   upsertPeer(peer: PeerInfo): void {
-    this.peers.set(peer.id, peer)
+    const existing = this.peers.get(peer.id)
+    this.peers.set(peer.id, existing ? { ...existing, ...peer } : peer)
     this.emitPeers()
   }
 

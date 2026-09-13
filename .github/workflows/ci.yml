@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: typecheck + unit (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "23.6"
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      # offline unit tests only (protocol/store/keys/policy/client/entries);
+      # network suites are excluded via their names
+      - run: bun test test/protocol.test.ts test/store.test.ts test/keys.test.ts test/policy.test.ts test/client.test.ts test/entry.test.ts test/codex.test.ts
+
+  integration:
+    name: integration (DHT, retry on announce races)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "23.6"
+      - run: bun install --frozen-lockfile
+      # real DHT swarms; flaky first-announce races are retried by the matrix
+      - name: integration suites
+        run: |
+          set -o pipefail
+          bun test test/sidecar.test.ts test/allowlist.test.ts test/resilience.test.ts test/pi.test.ts
+      - name: fallback summary
+        if: failure()
+        run: echo "::warning::attempt ${{ matrix.attempt }} failed — check whether both attempts failed before treating this as a regression"
+
+  windows:
+    name: windows (experimental)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "23.6"
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test test/protocol.test.ts test/store.test.ts test/keys.test.ts test/policy.test.ts test/client.test.ts test/entry.test.ts test/codex.test.ts
+      - name: sidecar spawn smoke (offline room)
+        shell: bash
+        run: |
+          node src/sidecar.ts --topic "$(node -e "console.log('a'.repeat(64))")" --id smoke --name smoke --room smoke &
+          sleep 5
+          tasklist //FI "IMAGENAME eq node.exe" | grep -c node.exe || true

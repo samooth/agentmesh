@@ -16,6 +16,11 @@ rooms, and treat chat messages as untrusted input to agents.
 
 - Adds four agent tools: `agent_chat_send`, `agent_chat_history`,
   `agent_chat_peers`, `agent_chat_whoami`
+- Messages are **signed** with each machine's persistent Ed25519 identity
+  key; history/peers output marks verified senders with ✓ and shows key
+  fingerprints, so impersonation is detectable out of band
+- `agent_chat_history` supports an `after_id` cursor so agents can poll
+  for only the newest messages
 - Incoming messages surface as host notifications (TUI toasts on
   opencode/Kilo, `ctx.ui.notify` on pi) so the human sees room activity in
   real time; on OpenCodex they are pull-only via `agent_chat_history`
@@ -41,6 +46,12 @@ The plugin is host-neutral: one package, four host adapters, and agents on
 any host share the same rooms. (Not yet published to npm — install from a
 git checkout for now; the npm name `agentmesh` is reserved for this
 project's first publish.)
+
+> **OpenCodex note**: the OpenCodex adapter (`src/codex.ts` +
+> `scripts/install-codex.mjs`) is a workaround for missing host capabilities
+> (no options channel, no system hook, no dispose, per-tool plugin files).
+> Once open-codex lands those, the adapter and installer will be retired in
+> favor of the opencode-style path.
 
 **opencode** — in any project's `opencode.json`:
 
@@ -123,6 +134,9 @@ opencode.
 | `historyLimit` | `200`             | Ring-buffer size for chat history                      |
 | `syncCount`    | `20`              | Messages offered to newly connected peers             |
 | `node`         | `"node"` on PATH  | Node binary for the sidecar (or `AGENTMESH_NODE`)      |
+| `allowFile`    | none              | Live allowlist JSON file (watched; edits kick removed peers immediately) |
+| `persist`      | per-topic JSONL under `~/.cache/agentmesh/history/` | History persistence across sidecar restarts; `""` disables |
+| `rooms`        | none              | Extra rooms `{ name: secret-or-config }`; tools accept an optional `room` argument |
 
 opencode/Kilo plugin options additionally support `toast` (default `true`,
 TUI toasts) and `instruction` (default `true`, system-prompt note). On
@@ -229,6 +243,42 @@ unavailable.
   swarm re-announces every 10s, so give it a moment before assuming failure.
   Firewalled networks that block outbound UDP will not work.
 
+## Debug CLI
+
+A standalone room client with no host — handy for testing rooms and
+debugging connectivity:
+
+```sh
+node src/cli.ts --room myteam --secret letmein --name debug
+```
+
+REPL commands: `/whoami`, `/peers` (with key fingerprints), `/history [n]`,
+`/quit`; anything else is sent to the room. Incoming messages print live
+with a ✓ (signature verified) marker.
+
+## Multi-room
+
+One session can join several rooms: set `rooms` alongside the primary
+`room` — `rooms` maps a name to its secret (or to
+`{ secret, allow, allowFile }`):
+
+```json
+{
+  "plugin": [[
+    "agentmesh",
+    {
+      "room": "myteam",
+      "secret": "letmein",
+      "rooms": { "standup": "standup-secret", "infra": { "secret": "x" } }
+    }
+  ]]
+}
+```
+
+The primary room starts eagerly; extra rooms spawn lazily on first use.
+All four tools accept an optional `room` argument; without it they act on
+the primary room.
+
 ## Development
 
 ```sh
@@ -244,23 +294,33 @@ holding the correct topic and secret is rejected in both directions).
 `test/entry.test.ts` smoke-tests the opencode/Kilo entries,
 `test/codex.test.ts` the OpenCodex definitions/handlers, and
 `test/pi.test.ts` the pi factory (tool registration, disabled policy, env-
-configured sidecar e2e). Unit tests (`protocol`, `store`, `keys`, `policy`)
-run offline.
+configured sidecar e2e). Unit tests (`protocol` incl. signing, `store`,
+`keys`, `policy`, `ratelimit`, `client`) run offline, as do
+`test/persistence.test.ts` (cursor, JSONL replay, live allowlist file),
+`test/multiroom.test.ts`, and `test/resilience.test.ts` (sidecar crash +
+respawn). CI (`.github/workflows/ci.yml`) runs the offline suites on every
+push, retries the DHT integration suites (announce races), and keeps an
+experimental Windows job.
 
 ## Protocol
 
 NDJSON over Noise-encrypted Hyperswarm sockets:
 
 ```jsonc
-{"kind":"hello","id":"...","name":"agent-1a2b","project":"myrepo"}
-{"kind":"chat","id":"uuid","from":"agent-id","name":"agent-1a2b","text":"hi","ts":1690000000000}
+{"kind":"hello","id":"...","name":"agent-1a2b","project":"myrepo","pk":"<64-hex noise pubkey>"}
+{"kind":"chat","id":"uuid","from":"agent-id","name":"agent-1a2b","text":"hi","ts":1690000000000,"sig":"<64-hex ed25519 sig over id|from|ts|text>"}
 {"kind":"sync","messages":[ /* up to 50 chat messages */ ]}
 ```
 
 Topic = `sha256("agentmesh:v1:<room>[:<secret>]")`. Every peer joins in
 server+client mode and re-announces every 10s so simultaneous joiners
 converge. When an `allow` list is set, the Hyperswarm firewall rejects any
-peer not on it before any protocol data is exchanged.
+peer not on it before any protocol data is exchanged. Chat messages are
+signed with the sender's persistent Ed25519 key (the same keypair as the
+noise transport key) and verified on receipt against the *connection's*
+public key — a peer can claim any display name, but cannot forge another
+key's authorship. Inbound lines are token-bucket rate-limited per peer;
+flooding peers are dropped and cooldown-banned.
 
 ## License
 

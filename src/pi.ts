@@ -41,6 +41,7 @@ export default function agentmeshPi(pi: ExtensionAPI): void {
       opts.historyLimit = Number(process.env.AGENTMESH_HISTORY_LIMIT)
     if (process.env.AGENTMESH_SYNC_COUNT) opts.syncCount = Number(process.env.AGENTMESH_SYNC_COUNT)
     if (process.env.AGENTMESH_NODE) opts.node = process.env.AGENTMESH_NODE
+    // read by plugin-core directly: AGENTMESH_ALLOW_FILE, AGENTMESH_PERSIST
     return opts
   }
 
@@ -114,6 +115,9 @@ export default function agentmeshPi(pi: ExtensionAPI): void {
     promptGuidelines: GUIDELINES,
     parameters: Type.Object({
       text: Type.String({ description: "Message to send to the room (plain text)" }),
+      room: Type.Optional(
+        Type.String({ description: "Room to send to (default: the primary configured room)" }),
+      ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       return callCore("send", params)
@@ -124,12 +128,17 @@ export default function agentmeshPi(pi: ExtensionAPI): void {
     name: "agent_chat_history",
     label: "Agent chat: history",
     description:
-      "Read recent messages from the team agent chat room. Check at the start of a task and before work that might conflict with other agents.",
+      "Read recent messages from the team agent chat room. Check at the start of a task and before work that might conflict with other agents. Use after_id with the newest message id from a previous call to fetch only newer messages.",
     promptSnippet: "Read recent messages from the shared agent chat room",
     promptGuidelines: GUIDELINES,
     parameters: Type.Object({
       limit: Type.Optional(
         Type.Integer({ minimum: 1, maximum: 200, description: "Max messages to return (default 20)" }),
+      ),
+      after_id: Type.Optional(
+        Type.String({
+          description: "Only return messages newer than this message id (cursor from a previous call)",
+        }),
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
@@ -142,9 +151,13 @@ export default function agentmeshPi(pi: ExtensionAPI): void {
     label: "Agent chat: peers",
     description: "List agents currently connected to the team agent chat room.",
     promptSnippet: "List agents connected to the shared chat room",
-    parameters: Type.Object({}),
-    async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
-      return callCore("peers", {})
+    parameters: Type.Object({
+      room: Type.Optional(
+        Type.String({ description: "Room to list peers from (default: the primary configured room)" }),
+      ),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+      return callCore("peers", params)
     },
   }
 
@@ -154,9 +167,13 @@ export default function agentmeshPi(pi: ExtensionAPI): void {
     description:
       "Show this agent's chat identity: display name, room, and noise public key. Share the public key with teammates so they can allowlist it.",
     promptSnippet: "Show your agent chat identity and public key",
-    parameters: Type.Object({}),
-    async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
-      return callCore("whoami", {})
+    parameters: Type.Object({
+      room: Type.Optional(
+        Type.String({ description: "Room to show identity from (default: the primary configured room)" }),
+      ),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+      return callCore("whoami", params)
     },
   }
 

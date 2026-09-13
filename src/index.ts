@@ -40,6 +40,13 @@ export const ChatPlugin: Plugin = async (input: PluginInput, options) => {
         // best-effort
       }
     },
+    "experimental.session.compacting": async (_input, output) => {
+      try {
+        output.context.push(...(await core.compactionContext()))
+      } catch {
+        // best-effort
+      }
+    },
     dispose: core.dispose,
   }
   return hooks

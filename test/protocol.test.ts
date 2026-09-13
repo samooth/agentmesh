@@ -1,11 +1,15 @@
 import { describe, expect, test } from "bun:test"
+import { keyPair as keyPairFromSeed } from "hypercore-crypto"
 import {
   deriveTopic,
   encodeLine,
+  identityKeyPair,
   sanitizeForDisplay,
+  signChatMessage,
   validateChatMessage,
   validateHelloMessage,
   validateSyncMessage,
+  verifyChatSignature,
   MAX_TEXT_BYTES,
 } from "../src/protocol.ts"
 
@@ -139,5 +143,91 @@ describe("encodeLine", () => {
     const parsed = JSON.parse(line)
     expect(parsed.id).toBe("abc")
     expect(validateChatMessage(parsed)!.text).toBe("hello world")
+  })
+})
+
+describe("message signing (ed25519)", () => {
+  const seed = "11".repeat(32)
+  const kp = identityKeyPair(seed)
+
+  function makeMsg(): ReturnType<typeof validateChatMessage> {
+    return validateChatMessage({
+      kind: "chat",
+      id: crypto.randomUUID(),
+      from: "agent-x",
+      name: "agent-x",
+      text: "signed hello",
+      ts: Date.now(),
+    })
+  }
+
+  test("identityKeyPair derives a stable 32-byte keypair from the seed", () => {
+    const again = identityKeyPair(seed)
+    expect(kp.publicKey.length).toBe(32)
+    expect(kp.secretKey.length).toBe(64)
+    expect(kp.publicKey.equals(again.publicKey)).toBe(true)
+    // hypercore-crypto keypairs ARE ed25519: the noise key and the signing
+    // key are the same keypair, so signatures verify against the pubkey
+    // peers already pin for the connection.
+    const noise = keyPairFromSeed(Buffer.from(seed, "hex"))
+    expect(noise.publicKey.equals(kp.publicKey)).toBe(true)
+  })
+
+  test("signChatMessage attaches a signature that verifyChatSignature accepts", () => {
+    const msg = makeMsg()!
+    signChatMessage(msg, kp.secretKey)
+    expect(typeof msg.sig).toBe("string")
+    expect(msg.verified).toBe("ok")
+    expect(verifyChatSignature(msg, kp.publicKey.toString("hex"))).toBe("ok")
+  })
+
+  test("signature survives wire round-trip and still verifies", () => {
+    const msg = makeMsg()!
+    signChatMessage(msg, kp.secretKey)
+    const wire = JSON.parse(encodeLine(msg))
+    const back = validateChatMessage(wire)!
+    expect(back.sig).toBe(msg.sig)
+    expect(verifyChatSignature(back, kp.publicKey.toString("hex"))).toBe("ok")
+  })
+
+  test("tampered text invalidates the signature", () => {
+    const msg = makeMsg()!
+    signChatMessage(msg, kp.secretKey)
+    const tampered = validateChatMessage({
+      ...msg,
+      text: "tampered payload",
+    })!
+    tampered.sig = msg.sig
+    expect(verifyChatSignature(tampered, kp.publicKey.toString("hex"))).toBe("bad")
+  })
+
+  test("wrong key rejects; unsigned reports unsigned", () => {
+    const msg = makeMsg()!
+    signChatMessage(msg, kp.secretKey)
+    const other = identityKeyPair("22".repeat(32))
+    expect(verifyChatSignature(msg, other.publicKey.toString("hex"))).toBe("bad")
+    const unsigned = makeMsg()!
+    expect(verifyChatSignature(unsigned, kp.publicKey.toString("hex"))).toBe("unsigned")
+  })
+
+  test("garbage sig fields are rejected, not thrown", () => {
+    const msg = makeMsg()!
+    msg.sig = "zzzz-not-hex"
+    expect(verifyChatSignature(msg, kp.publicKey.toString("hex"))).toBe("bad")
+    msg.sig = ""
+    expect(verifyChatSignature(msg, kp.publicKey.toString("hex"))).toBe("bad")
+  })
+
+  test("hello pk is normalized when present", () => {
+    const hello = validateHelloMessage({
+      kind: "hello",
+      id: "x",
+      name: "n",
+      project: "",
+      pk: kp.publicKey.toString("hex").toUpperCase(),
+    })
+    expect(hello!.pk).toBe(kp.publicKey.toString("hex"))
+    const bad = validateHelloMessage({ kind: "hello", id: "x", name: "n", pk: "short" })
+    expect(bad!.pk).toBeUndefined()
   })
 })

@@ -86,6 +86,8 @@ async function defaultRun(bin: string, args: string[]): Promise<string> {
   })
 }
 
+/** Appends a short stderr tail to a sidecar error, when one was captured. */
+
 export type SidecarClientOptions = {
   /** Node binary to run the sidecar. */
   node: string
@@ -109,6 +111,9 @@ export class SidecarClient {
   private exited = false
   private exitCode: number | null = null
   private readySettled = false
+  /** Rolling tail of the sidecar's stderr, surfaced in errors (hosts with
+   *  no log channel — OpenCodex/pi — would otherwise drop it silently). */
+  private stderrTailText = ""
   readonly ready: Promise<{ room: string; name: string; topicHex: string; publicKeyHex: string }>
   private resolveReady!: (value: { room: string; name: string; topicHex: string; publicKeyHex: string }) => void
   private rejectReady!: (err: Error) => void
@@ -178,6 +183,7 @@ export class SidecarClient {
 
     child.stderr.setEncoding("utf8")
     child.stderr.on("data", (chunk: string) => {
+      this.stderrTailText = (this.stderrTailText + chunk).slice(-1000)
       this.opts.onLog?.("sidecar stderr", { tail: chunk.slice(-500) })
     })
 
@@ -253,10 +259,11 @@ export class SidecarClient {
   }
 
   private call(cmd: "send", text: string): Promise<IpcResponse>
-  private call(cmd: "history", limit?: number): Promise<IpcResponse>
+  private call(cmd: "history", limit?: number, afterId?: string): Promise<IpcResponse>
   private call(cmd: "peers"): Promise<IpcResponse>
   private call(cmd: "whoami"): Promise<IpcResponse>
-  private call(cmd: string, arg?: unknown): Promise<IpcResponse> {
+  private call(cmd: "allow", keys: string | string[]): Promise<IpcResponse>
+  private call(cmd: string, arg?: unknown, afterId?: string): Promise<IpcResponse> {
     return new Promise((resolve, reject) => {
       if (!this.child || this.exited) {
         reject(new Error("agentmesh sidecar is not running"))
@@ -266,7 +273,11 @@ export class SidecarClient {
       this.pending.set(id, { resolve })
       const body: Record<string, unknown> = { id, cmd }
       if (cmd === "send") body.text = arg as string
+      if (cmd === "allow") body.keys = arg as string | string[]
       if (cmd === "history" && typeof arg === "number") body.limit = arg
+      if (cmd === "history" && typeof afterId === "string" && afterId.length > 0) {
+        body.afterId = afterId
+      }
       this.child.stdin.write(JSON.stringify(body) + "\n", (err) => {
         if (err) {
           this.pending.delete(id)
@@ -276,28 +287,46 @@ export class SidecarClient {
     })
   }
 
+  private fail(error: string): Error {
+    const tail = this.stderrTailText.trim()
+    return new Error(tail ? `${error} (sidecar stderr: ${tail.slice(-300)})` : error)
+  }
+
   async send(text: string): Promise<number> {
     const res = await this.call("send", text)
-    if (!res.ok) throw new Error(res.error)
+    if (!res.ok) throw this.fail(res.error)
     return (res.result as { reached: number }).reached
   }
 
-  async history(limit?: number): Promise<{ messages: ChatMessage[]; connections: number }> {
-    const res = await this.call("history", limit)
-    if (!res.ok) throw new Error(res.error)
+  async history(limit?: number, afterId?: string): Promise<{ messages: ChatMessage[]; connections: number }> {
+    const res = await this.call("history", limit, afterId)
+    if (!res.ok) throw this.fail(res.error)
     return res.result as { messages: ChatMessage[]; connections: number }
   }
 
   async peers(): Promise<{ peers: PeerInfo[]; connections: number }> {
     const res = await this.call("peers")
-    if (!res.ok) throw new Error(res.error)
+    if (!res.ok) throw this.fail(res.error)
     return res.result as { peers: PeerInfo[]; connections: number }
   }
 
   async whoami(): Promise<{ id: string; name: string; room: string; publicKeyHex: string; allowCount: number }> {
     const res = await this.call("whoami")
-    if (!res.ok) throw new Error(res.error)
+    if (!res.ok) throw this.fail(res.error)
     return res.result as { id: string; name: string; room: string; publicKeyHex: string; allowCount: number }
+  }
+
+  /** Live-apply a new allowlist; kicks connections no longer allowed. */
+  async allow(keys: string | string[]): Promise<{ active: number; kicked: number }> {
+    const res = await this.call("allow", keys)
+    if (!res.ok) throw this.fail(res.error)
+    return res.result as { active: number; kicked: number }
+  }
+
+  /** Tail of captured sidecar stderr — attached to error messages so
+   *  OpenCodex/pi (which have no log channel) still surface spawn issues. */
+  stderrTail(): string {
+    return this.stderrTailText
   }
 
   async destroy(): Promise<void> {
