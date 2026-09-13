@@ -1,0 +1,27 @@
+{
+  "name": "opencode-chat",
+  "version": "0.1.0",
+  "description": "Peer-to-peer realtime chat for opencode agents via Hyperswarm",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*"
+  },
+  "dependencies": {
+    "hypercore-crypto": "^3.7.0",
+    "hyperswarm": "^4.8.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.18.30",
+    "@types/bun": "^1.4.2",
+    "typescript": "^5.9.3"
+  }
+}
