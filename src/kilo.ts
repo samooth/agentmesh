@@ -5,7 +5,7 @@ import { startChat } from "./plugin-core.ts"
 /**
  * Kilo Code entry. Kilo's canonical plugin module shape is a descriptor
  * with an `id` and a `server` plugin function; the package exposes this
- * via exports["./server"] so `kilo plugin opencode-chat` detects it.
+ * via exports["./server"] so `kilo plugin agentmesh` detects it.
  */
 const server: Plugin = async (input: PluginInput, options) => {
   const core = await startChat(input, options, {
@@ -13,7 +13,7 @@ const server: Plugin = async (input: PluginInput, options) => {
     log: async (message, extra) => {
       try {
         await input.client.app.log({
-          body: { service: "opencode-chat", level: "info", message, extra: extra ?? {} },
+          body: { service: "agentmesh", level: "info", message, extra: extra ?? {} },
         })
       } catch {
         // logging is best-effort
@@ -44,4 +44,4 @@ const server: Plugin = async (input: PluginInput, options) => {
   return hooks
 }
 
-export default { id: "opencode-chat", server }
+export default { id: "agentmesh", server }

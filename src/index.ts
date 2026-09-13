@@ -14,7 +14,7 @@ export const ChatPlugin: Plugin = async (input: PluginInput, options) => {
     log: async (message, extra) => {
       try {
         await input.client.app.log({
-          body: { service: "opencode-chat", level: "info", message, extra: extra ?? {} },
+          body: { service: "agentmesh", level: "info", message, extra: extra ?? {} },
         })
       } catch {
         // logging is best-effort

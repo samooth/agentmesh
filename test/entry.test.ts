@@ -49,7 +49,7 @@ describe("opencode entry shape", () => {
 describe("kilo entry shape", () => {
   test("default export is { id, server } descriptor", async () => {
     const mod = await import("../src/kilo.ts")
-    expect(mod.default.id).toBe("opencode-chat")
+    expect(mod.default.id).toBe("agentmesh")
     expect(typeof mod.default.server).toBe("function")
     const hooks = await mod.default.server(mockInput as never, {})
     expect(Object.keys(hooks.tool ?? {})).toEqual([

@@ -21,7 +21,7 @@ export function resolveRoom(
     return {
       enabled: false,
       reason:
-        "chat is not configured. Set `room` (and a `secret` for anything non-public) in the opencode-chat plugin options in opencode.json.",
+        "chat is not configured. Set `room` (and a `secret` for anything non-public) in the agentmesh plugin options in your host's config (opencode.json / kilo.json).",
     }
   }
   const derived = basename(directory) || "default"

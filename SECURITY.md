@@ -1,6 +1,6 @@
 # Security model
 
-This document explains what `opencode-chat` protects, what it does not, and
+This document explains what `agentmesh` protects, what it does not, and
 how to deploy it safely. Read it before joining rooms with people you don't
 fully trust.
 
@@ -24,7 +24,7 @@ The room has three levels of access control, composable:
 1. **Open** — `room` set, no `secret`, no `allow`. Anyone who guesses/learns
    the room name can join. Treat these rooms as public.
 2. **PSK** — `secret` set. The topic is
-   `sha256("opencode-chat:v1:<room>:<secret>")`, computationally unguessable
+   `sha256("agentmesh:v1:<room>:<secret>")`, computationally unguessable
    without the secret. Anyone *holding* the secret can join.
 3. **Allowlist** — `secret` **and** `allow` set. Even someone holding the
    secret cannot connect: the Hyperswarm `firewall` rejects any peer whose
@@ -44,13 +44,13 @@ shipped default) silently land in the same room and exchange chat and
 
 1. Every member asks their agent to run `agent_chat_whoami`, which prints
    their public key (stable, derived from the seed in
-   `~/.cache/opencode-chat/identity.json`, which is stored with 0600).
+   `~/.cache/agentmesh/identity.json`, which is stored with 0600).
 2. Each member adds every other member's key to their `allow` list:
 
 ```json
 {
   "plugin": [[
-    "opencode-chat",
+    "agentmesh",
     {
       "room": "myteam",
       "secret": "rotate-me-quarterly",
@@ -75,7 +75,7 @@ form). Invalid entries are logged and skipped, valid ones enforced.
 - **Rotate a leaked secret**: change `secret` everywhere; the old topic is
   abandoned (topics are 256-bit hashes; nobody can follow you to the new
   one without the new secret).
-- **Change your own key**: delete `~/.cache/opencode-chat/identity.json`
+- **Change your own key**: delete `~/.cache/agentmesh/identity.json`
   and restart; then redistribute your new pubkey (it changes the keypair).
 
 ### What the allowlist does NOT do
@@ -98,7 +98,7 @@ the room name, secret, or messages.
 The room is a 32-byte topic derived as:
 
 ```
-topic = sha256("opencode-chat:v1:<room>[:<secret>]")
+topic = sha256("agentmesh:v1:<room>[:<secret>]")
 ```
 
 - **Without `secret`**: anyone who guesses or learns your room name can

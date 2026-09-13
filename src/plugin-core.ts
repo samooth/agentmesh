@@ -68,7 +68,8 @@ export type CoreHooks<TOOL> = {
   dispose: () => Promise<void>
 }
 
-const IDENTITY_DIR = "opencode-chat"
+const IDENTITY_DIR = "agentmesh"
+const LEGACY_IDENTITY_DIR = "opencode-chat"
 const IDENTITY_FILE = "identity.json"
 
 type Identity = { id: string; name: string; seed: string }
@@ -77,13 +78,27 @@ async function loadOrCreateIdentity(explicitName?: string): Promise<Identity> {
   const dir = `${homedir()}/.cache/${IDENTITY_DIR}`
   const file = `${dir}/${IDENTITY_FILE}`
   let cached: Partial<Identity> = {}
+  let migratedFromLegacy = false
   try {
     cached = JSON.parse(await readFile(file, "utf8")) as Partial<Identity>
   } catch {
-    // no cached identity — create one below
+    // no cached identity at the new location — try the pre-rename path, then
+    // fall through to creating one
+    try {
+      const legacy = JSON.parse(
+        await readFile(`${homedir()}/.cache/${LEGACY_IDENTITY_DIR}/${IDENTITY_FILE}`, "utf8"),
+      ) as Partial<Identity>
+      if (typeof legacy.seed === "string" || typeof legacy.id === "string") {
+        cached = legacy
+        // re-save below under the new path so the pubkey stays stable
+        migratedFromLegacy = true
+      }
+    } catch {
+      // no legacy identity either
+    }
   }
   let { id, name, seed } = cached
-  let dirty = false
+  let dirty = migratedFromLegacy
   if (typeof seed !== "string" || !/^[0-9a-f]{64}$/.test(seed)) {
     // 256-bit seed: two UUIDs' random halves concatenated to 64 hex chars
     seed =
@@ -175,7 +190,7 @@ export async function startChat<TOOL>(
   const nodeBin =
     typeof opts.node === "string" && opts.node.length > 0
       ? opts.node
-      : process.env.OPENCODE_CHAT_NODE ?? "node"
+      : process.env.AGENTMESH_NODE ?? "node"
 
   const incoming = (msg: ChatMessage) => {
     if (!toastEnabled) return

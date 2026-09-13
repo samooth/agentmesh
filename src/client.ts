@@ -44,7 +44,7 @@ export class SidecarClient {
     })
     const timeout = opts.spawnTimeoutMs ?? 15_000
     const timer = setTimeout(() => {
-      this.rejectReady(new Error(`opencode-chat sidecar not ready after ${timeout}ms`))
+      this.rejectReady(new Error(`agentmesh sidecar not ready after ${timeout}ms`))
     }, timeout)
     this.ready.then(
       () => {
@@ -81,7 +81,7 @@ export class SidecarClient {
         this.readySettled = true
         this.rejectReady(
           new Error(
-            `opencode-chat: failed to spawn the Node sidecar (${String((err as NodeJS.ErrnoException).code ?? err)}). Install Node >= 23.6 or set the \`node\` option.`,
+            `agentmesh: failed to spawn the Node sidecar (${String((err as NodeJS.ErrnoException).code ?? err)}). Install Node >= 23.6 or set the \`node\` option.`,
           ),
         )
       }
@@ -107,7 +107,7 @@ export class SidecarClient {
       if (!this.readySettled) {
         // ready promise not yet settled; reject it so callers see the failure
         this.rejectReady(
-          new Error(`opencode-chat sidecar exited before becoming ready (code ${code})`),
+          new Error(`agentmesh sidecar exited before becoming ready (code ${code})`),
         )
       }
     })
@@ -165,7 +165,7 @@ export class SidecarClient {
   private call(cmd: string, arg?: unknown): Promise<IpcResponse> {
     return new Promise((resolve, reject) => {
       if (!this.child || this.exited) {
-        reject(new Error("opencode-chat sidecar is not running"))
+        reject(new Error("agentmesh sidecar is not running"))
         return
       }
       const id = crypto.randomUUID()

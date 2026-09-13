@@ -35,8 +35,8 @@ export type WireMessage = HelloMessage | ChatMessage | SyncMessage
 
 export function deriveTopic(room: string, secret?: string): Buffer {
   const material = secret
-    ? `opencode-chat:v${PROTOCOL_VERSION}:${room}:${secret}`
-    : `opencode-chat:v${PROTOCOL_VERSION}:${room}`
+    ? `agentmesh:v${PROTOCOL_VERSION}:${room}:${secret}`
+    : `agentmesh:v${PROTOCOL_VERSION}:${room}`
   return createHash("sha256").update(material).digest()
 }
 

@@ -1,6 +1,6 @@
 {
-  "name": "opencode-chat",
-  "version": "0.1.0",
+  "name": "agentmesh",
+  "version": "0.2.0",
   "description": "Peer-to-peer realtime chat for opencode and Kilo Code agents via Hyperswarm",
   "license": "MIT",
   "type": "module",
