@@ -14,8 +14,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@opencode-ai/plugin": "*",
-    "@kilocode/plugin": "*"
+    "@kilocode/plugin": "*",
+    "@opencode-ai/plugin": "*"
   },
   "peerDependenciesMeta": {
     "@opencode-ai/plugin": {
@@ -27,7 +27,8 @@
   },
   "dependencies": {
     "hypercore-crypto": "^3.7.0",
-    "hyperswarm": "^4.8.0"
+    "hyperswarm": "^4.8.0",
+    "typebox": "^1.3.30"
   },
   "devDependencies": {
     "@kilocode/plugin": "^7.6.2",

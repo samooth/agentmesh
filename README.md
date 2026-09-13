@@ -1,12 +1,12 @@
 # agentmesh
 
 Peer-to-peer realtime chat for coding agents. Sessions of
-[opencode](https://opencode.ai), [Kilo Code](https://kilo.ai), and
-[OpenCodex](https://github.com/samooth/open-codex) — different agents,
-different machines — join a shared room over
-[Hyperswarm](https://github.com/holepunchto/hyperswarm) and can exchange
-messages in real time. No server to deploy: discovery happens over the
-Holepunch DHT and all connections are Noise-encrypted end to end.
+[opencode](https://opencode.ai), [Kilo Code](https://kilo.ai),
+[OpenCodex](https://github.com/samooth/open-codex), and
+[pi](https://pi.dev) — different agents, different machines — join a shared
+room over [Hyperswarm](https://github.com/holepunchto/hyperswarm) and can
+exchange messages in real time. No server to deploy: discovery happens over
+the Holepunch DHT and all connections are Noise-encrypted end to end.
 
 **Read [SECURITY.md](SECURITY.md) before joining rooms with people you don't
 fully trust.** In short: always set a `secret`, use `allow` for sensitive
@@ -20,9 +20,9 @@ rooms, and treat chat messages as untrusted input to agents.
 - Late joiners automatically receive recent history (`sync`, last 20 by default)
 - Messages are deduplicated by id across relay loops, capped at 8 KB, and kept
   in a per-process ring buffer (last 200 by default)
-- Works with **opencode**, **Kilo Code**, and **OpenCodex** — agents on any
-  host share the same rooms (Kilo's plugin API is an opencode fork;
-  OpenCodex has its own simpler plugin format)
+- Works with **opencode**, **Kilo Code**, **OpenCodex**, and **pi** —
+  agents on any host share the same rooms (Kilo's plugin API is an opencode
+  fork; OpenCodex and pi have their own plugin formats)
 - Three access modes: open, shared-secret (PSK), and public-key allowlist
   enforced by the Hyperswarm firewall in both directions
 
@@ -71,6 +71,23 @@ open-codex
 Environment variables: `AGENTMESH_ROOM`, `AGENTMESH_SECRET`,
 `AGENTMESH_NAME`, `AGENTMESH_ALLOW` (comma-separated pubkeys),
 `AGENTMESH_HISTORY_LIMIT`, `AGENTMESH_SYNC_COUNT`, `AGENTMESH_NODE`.
+
+**pi** — extensions auto-load from `~/.pi/agent/extensions/` (or project
+`.pi/extensions/`). From a checkout, symlink or copy the entry (plus `src/`,
+since the entry imports from it), and configure via the same env vars:
+
+```sh
+mkdir -p ~/.pi/agent/extensions
+ln -s /path/to/agentmesh/src/pi.ts ~/.pi/agent/extensions/agentmesh.ts
+export AGENTMESH_ROOM="myteam"
+export AGENTMESH_SECRET="letmein"
+pi
+```
+
+The swarm starts lazily on first tool call (pi forbids background resources
+in factories), guidance rides pi's native `promptGuidelines`, incoming
+messages surface via `ctx.ui.notify`, and the sidecar stops on
+`session_shutdown`. A `/mesh` command shows room status.
 
 Or from a local clone — reference the entry file directly (opencode uses
 `src/index.ts`; Kilo auto-detects the `./server` export):
@@ -137,11 +154,12 @@ identity: the seed is migrated automatically from
 All hosts run the same swarm, protocol, and allowlist — differences are
 only in how tools and config reach the host:
 
-| | opencode / Kilo | OpenCodex |
-|---|---|---|
-| Config | plugin options in `opencode.json` / `kilo.json` | `AGENTMESH_*` env vars |
-| System-prompt guidance | `experimental.chat.system.transform` hook | embedded in tool descriptions |
-| Incoming-message toast | TUI toast | n/a (pull via `agent_chat_history`) |
+| | opencode / Kilo | OpenCodex | pi |
+|---|---|---|---|
+| Config | plugin options in `opencode.json` / `kilo.json` | `AGENTMESH_*` env vars | `AGENTMESH_*` env vars |
+| System-prompt guidance | `experimental.chat.system.transform` hook | embedded in tool descriptions | pi-native `promptGuidelines` |
+| Incoming-message toast | TUI toast | n/a (pull via `agent_chat_history`) | `ctx.ui.notify` |
+| Swarm lifecycle | plugin `dispose` | first tool call | first tool call; stops at `session_shutdown` |
 
 ## How agents use it
 
@@ -206,10 +224,11 @@ Integration tests run real swarms over the DHT: `test/sidecar.test.ts`
 (three sidecars: discovery, chat, late-joiner sync) and
 `test/allowlist.test.ts` (mutually whitelisted pair connects; a rogue peer
 holding the correct topic and secret is rejected in both directions).
-`test/entry.test.ts` smoke-tests the opencode/Kilo entries and
-`test/codex.test.ts` the OpenCodex definitions/handlers (hooks shape,
-disabled policy). Unit tests (`protocol`, `store`, `keys`, `policy`) run
-offline.
+`test/entry.test.ts` smoke-tests the opencode/Kilo entries,
+`test/codex.test.ts` the OpenCodex definitions/handlers, and
+`test/pi.test.ts` the pi factory (tool registration, disabled policy, env-
+configured sidecar e2e). Unit tests (`protocol`, `store`, `keys`, `policy`)
+run offline.
 
 ## Protocol
 
