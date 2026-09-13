@@ -3,6 +3,26 @@
   "version": "0.2.0",
   "description": "Peer-to-peer realtime chat for opencode and Kilo Code agents via Hyperswarm",
   "license": "MIT",
+  "author": "Tomás Díaz <tomas@bsv.direct>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samooth/agentmesh.git"
+  },
+  "homepage": "https://github.com/samooth/agentmesh#readme",
+  "bugs": "https://github.com/samooth/agentmesh/issues",
+  "engines": {
+    "node": ">=23.6"
+  },
+  "keywords": [
+    "agents",
+    "chat",
+    "hyperswarm",
+    "p2p",
+    "opencode",
+    "kilo",
+    "codex",
+    "pi"
+  ],
   "type": "module",
   "main": "./src/index.ts",
   "exports": {

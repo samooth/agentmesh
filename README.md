@@ -63,7 +63,9 @@ project's first publish.)
 
 **OpenCodex** — plugins are per-tool `.js` files in `~/.open-codex/plugins/`
 with no options channel, so configuration comes from environment variables.
-Generate the four stub files from a checkout:
+The installer transpiles the plugin to plain `.js` first (open-codex targets
+Node >= 22, which cannot load `.ts` modules) and generates the four stub
+files from a checkout:
 
 ```sh
 node scripts/install-codex.mjs
