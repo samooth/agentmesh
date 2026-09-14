@@ -23,12 +23,12 @@ const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`
-const magenta = (s: string) => `\x1b[35m${s}\x1b[0m`
+const brightBlue = (s: string) => `\x1b[94m${s}\x1b[0m`
 const gray = (s: string) => `\x1b[90m${s}\x1b[0m`
 const white = (s: string) => `\x1b[37m${s}\x1b[0m`
 
 // Color palette for author names (stable per name via hash)
-const AUTHOR_COLORS = [cyan, green, yellow, magenta, red]
+const AUTHOR_COLORS = [cyan, green, yellow, brightBlue, red]
 function authorColor(name: string): (s: string) => string {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
@@ -81,7 +81,7 @@ const { keys: allowKeys } = parseAllowList(allowRaw)
 let dropCount = 0
 function flushDrops(): void {
   if (dropCount > 1) {
-    process.stdout.write(`\r${gray(`  ⚠ ${dropCount} unsigned/invalid messages suppressed`)}\n`)
+    prints(`  ${gray(`⚠ ${dropCount} unsigned/invalid messages suppressed`)}`)
   }
   dropCount = 0
 }
@@ -93,6 +93,19 @@ const sidecarPath = pluginDir.endsWith("src/")
   : `${pluginDir}sidecar.js`
 
 let peerCount = 0
+let rl: ReturnType<typeof createInterface> | null = null
+
+/** Print a line above the current prompt without eating the user's input. */
+function prints(line: string): void {
+  if (!rl) { process.stdout.write(line + "\n"); return }
+  // Save cursor position, clear current line, print, restore prompt
+  const cursor = rl.cursor ?? 0
+  const partial = rl.line ?? ""
+  process.stdout.write("\r\x1b[2K" + line + "\n")
+  process.stdout.write(`\r${cyan(name)}> ${partial}`)
+  // Reposition cursor within the partial input
+  if (cursor > 0) process.stdout.write(`\x1b[${cursor}C`)
+}
 
 const client = new SidecarClient({
   node: nodeBin,
@@ -113,19 +126,19 @@ const client = new SidecarClient({
     const mark = msg.verified === "ok" ? green("✓") : msg.verified === "bad" ? red("!") : gray("·")
     const ts = shortTime(msg.ts)
     const text = sanitizeForDisplay(msg.text).slice(0, 400)
-    process.stdout.write(`\r  ${dim(ts)}  ${mark} ${color(bold(msg.name))}: ${white(text)}\n`)
+    prints(`  ${dim(ts)}  ${mark} ${color(bold(msg.name))}: ${white(text)}`)
   },
   onPeers: (peers) => { peerCount = peers.length },
   onLog: (message) => {
     if (message.includes("dropped message with invalid signature")) {
       dropCount++
       if (dropCount === 1) {
-        process.stdout.write(`\r  ${yellow("⚠")} dropped message with invalid signature ${dim("(suppressing…)")}\n`)
+        prints(`  ${yellow("⚠")} dropped message with invalid signature ${dim("(suppressing…)")}`)
       }
       return
     }
     flushDrops()
-    process.stdout.write(`\r  ${dim("[sidecar]")} ${gray(message)}\n`)
+    prints(`  ${dim("[sidecar]")} ${gray(message)}`)
   },
 })
 
@@ -166,7 +179,7 @@ async function main(): Promise<void> {
       if (text.length === 0) {
         // blank line — show status
         const { connections } = await client.peers()
-        process.stdout.write(`  ${dim(`${connections} connection(s) · room ${info.room}`)}\n`)
+        prints(`  ${dim(`${connections} connection(s) · room ${info.room}`)}`)
       } else if (text === "/help") {
         console.log(HELP)
       } else if (text === "/whoami") {
@@ -220,7 +233,7 @@ async function main(): Promise<void> {
       } else {
         const reached = await client.send(text)
         const status = reached > 0 ? green(`${reached} peer(s)`) : yellow("no peers")
-        process.stdout.write(`  ${dim("→")} ${dim(status)}\n`)
+        prints(`  ${dim("→")} ${status}`)
       }
     } catch (err) {
       console.log(`  ${red("error:")} ${String(err instanceof Error ? err.message : err)}`)
