@@ -251,7 +251,7 @@ export function systemInstructionDisabled(reason: string): string {
   return [
     "## Team agent chat",
     `Chat is currently disabled: ${reason}`,
-    "If the user wants to enable it, they can set `room` (and a `secret` for anything non-public) in the agentmesh plugin options in their host's config (opencode.json / kilo.json) or AGENTMESH_ROOM / AGENTMESH_SECRET env vars (OpenCodex), then restart.",
+    "If the user wants to enable it, they can set `room` (and a `secret` for anything non-public) in the coding-chat plugin options in their host's config (opencode.json / kilo.json) or AGENTMESH_ROOM / AGENTMESH_SECRET env vars (OpenCodex), then restart.",
   ].join("\n")
 }
 

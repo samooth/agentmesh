@@ -48,7 +48,7 @@ export const ChatPlugin: Plugin = async (input: PluginInput, options) => {
         // the model sees them at the start of this turn without polling.
         output.messages.unshift({
           info: {
-            id: `agentmesh-feed-${crypto.randomUUID()}`,
+            id: `coding-chat-feed-${crypto.randomUUID()}`,
             sessionID: "",
             role: "user",
             time: { created: Date.now() },
@@ -57,7 +57,7 @@ export const ChatPlugin: Plugin = async (input: PluginInput, options) => {
           },
           parts: [
             {
-              id: `agentmesh-feed-${crypto.randomUUID()}`,
+              id: `coding-chat-feed-${crypto.randomUUID()}`,
               sessionID: "",
               messageID: "",
               type: "text",

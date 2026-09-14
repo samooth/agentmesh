@@ -43,7 +43,7 @@ export async function checkNodeVersion(
     const raw = await run(node, ["--version"])
     const parsed = parseNodeMajorMinor(raw)
     if (!parsed) {
-      nodeVersionCheck = { ok: false, error: `agentmesh: could not parse Node version from "${raw.trim()}"` }
+      nodeVersionCheck = { ok: false, error: `coding-chat: could not parse Node version from "${raw.trim()}"` }
       return nodeVersionCheck
     }
     const [wantMajor, wantMinor] = MIN_NODE_VERSION
@@ -51,7 +51,7 @@ export async function checkNodeVersion(
     if (major < wantMajor || (major === wantMajor && minor < wantMinor)) {
       nodeVersionCheck = {
         ok: false,
-        error: `agentmesh: Node >= ${wantMajor}.${wantMinor} is required to run the swarm sidecar (found ${raw.trim()}). Install a newer Node or point the \`node\` option / AGENTMESH_NODE at one.`,
+        error: `coding-chat: Node >= ${wantMajor}.${wantMinor} is required to run the swarm sidecar (found ${raw.trim()}). Install a newer Node or point the \`node\` option / AGENTMESH_NODE at one.`,
       }
       return nodeVersionCheck
     }
@@ -62,14 +62,14 @@ export async function checkNodeVersion(
     if (code === "ENOENT") {
       const result = {
         ok: false as const,
-        error: `agentmesh: Node binary "${node}" not found. Install Node >= ${MIN_NODE_VERSION[0]}.${MIN_NODE_VERSION[1]} or set the \`node\` option / AGENTMESH_NODE.`,
+        error: `coding-chat: Node binary "${node}" not found. Install Node >= ${MIN_NODE_VERSION[0]}.${MIN_NODE_VERSION[1]} or set the \`node\` option / AGENTMESH_NODE.`,
       }
       if (opts?.useCache !== false) nodeVersionCheck = result
       return result
     }
     const result = {
       ok: false as const,
-      error: `agentmesh: could not run "${node}" (${String(err instanceof Error ? err.message : err)})`,
+      error: `coding-chat: could not run "${node}" (${String(err instanceof Error ? err.message : err)})`,
     }
     if (opts?.useCache !== false) nodeVersionCheck = result
     return result
@@ -126,7 +126,7 @@ export class SidecarClient {
     })
     const timeout = opts.spawnTimeoutMs ?? 15_000
     const timer = setTimeout(() => {
-      this.rejectReady(new Error(`agentmesh sidecar not ready after ${timeout}ms`))
+      this.rejectReady(new Error(`coding-chat sidecar not ready after ${timeout}ms`))
     }, timeout)
     this.ready.then(
       () => {
@@ -164,9 +164,9 @@ export class SidecarClient {
       // check the cwd so the hint points at the right fix.
       let hint: string
       if (code === "ENOENT" && !existsSync(this.opts.cwd)) {
-        hint = `agentmesh: the sidecar's working directory does not exist (${this.opts.cwd}).`
+        hint = `coding-chat: the sidecar's working directory does not exist (${this.opts.cwd}).`
       } else {
-        hint = `agentmesh: failed to spawn the Node sidecar (${String(code ?? err)}). Install Node >= 23.6 or set the \`node\` option.`
+        hint = `coding-chat: failed to spawn the Node sidecar (${String(code ?? err)}). Install Node >= 23.6 or set the \`node\` option.`
       }
       this.opts.onLog?.("sidecar spawn failed", { error: String(err) })
       if (!this.readySettled) {

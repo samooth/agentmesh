@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * agentmesh debug CLI — a standalone room client, no host required.
+ * coding-chat debug CLI — a standalone room client, no host required.
  *
  * Wraps the same sidecar the hosts use and gives a human a REPL:
  * type messages, see incoming traffic live, run /whoami /peers /history.

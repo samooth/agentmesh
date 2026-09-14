@@ -5,7 +5,7 @@ import { startChat } from "./plugin-core.ts"
 /**
  * Kilo Code entry. Kilo's canonical plugin module shape is a descriptor
  * with an `id` and a `server` plugin function; the package exposes this
- * via exports["./server"] so `kilo plugin agentmesh` detects it.
+ * via exports["./server"] so `kilo plugin coding-chat` detects it.
  */
 const server: Plugin = async (input: PluginInput, options) => {
   const core = await startChat(input, options, {
@@ -45,7 +45,7 @@ const server: Plugin = async (input: PluginInput, options) => {
         if (feed === null) return
         output.messages.unshift({
           info: {
-            id: `agentmesh-feed-${crypto.randomUUID()}`,
+            id: `coding-chat-feed-${crypto.randomUUID()}`,
             sessionID: "",
             role: "user",
             time: { created: Date.now() },
@@ -54,7 +54,7 @@ const server: Plugin = async (input: PluginInput, options) => {
           },
           parts: [
             {
-              id: `agentmesh-feed-${crypto.randomUUID()}`,
+              id: `coding-chat-feed-${crypto.randomUUID()}`,
               sessionID: "",
               messageID: "",
               type: "text",
