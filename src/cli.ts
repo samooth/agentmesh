@@ -215,13 +215,20 @@ const client = new SidecarClient({
     knownPeers.clear()
     for (const [k, v] of fresh) knownPeers.set(k, v)
   },
-  onLog: (message) => {
+  onLog: (message, extra) => {
     if (message.includes("dropped message with invalid signature")) {
       dropCount++
       return
     }
     flushDrops()
-    sysLine(dim(`  [sidecar] ${message}`))
+    const detail =
+      extra && typeof extra === "object"
+        ? " " + Object.entries(extra as Record<string, unknown>)
+            .filter(([, v]) => v !== undefined)
+            .map(([k, v]) => `${k}=${String(v).slice(0, 120)}`)
+            .join(" ")
+        : ""
+    sysLine(dim(`  [sidecar] ${message}${detail}`))
   },
 })
 

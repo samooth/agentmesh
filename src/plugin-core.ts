@@ -1,10 +1,10 @@
 import type { ChatMessage } from "./protocol.ts"
-import { deriveTopic, MAX_NAME_BYTES, sanitizeForDisplay } from "./protocol.ts"
+import { deriveTopic, MAX_NAME_BYTES, PROTOCOL_VERSION, sanitizeForDisplay } from "./protocol.ts"
 import { SidecarClient, checkNodeVersion } from "./client.ts"
 import { parseAllowList } from "./keys.ts"
 import { resolveRoom } from "./policy.ts"
 import { systemInstruction, systemInstructionDisabled, toolsFor } from "./tools.ts"
-import { createHmac } from "node:crypto"
+import { createHash, createHmac } from "node:crypto"
 import { existsSync } from "node:fs"
 import { mkdir, readFile, writeFile, chmod } from "node:fs/promises"
 import { homedir } from "node:os"
@@ -114,7 +114,9 @@ export type CoreHooks<TOOL> = {
 }
 
 const IDENTITY_DIR = "coding-chat"
-const LEGACY_IDENTITY_DIR = "opencode-chat"
+// pre-rename cache dirs, newest migration chain first
+const LEGACY_IDENTITY_DIRS = ["agentmesh", "opencode-chat"]
+const LEGACY_HISTORY_DIRS = ["agentmesh", "opencode-chat"]
 const IDENTITY_FILE = "identity.json"
 
 type Identity = { id: string; name: string; seed: string }
@@ -127,19 +129,23 @@ async function loadOrCreateIdentity(explicitName?: string): Promise<Identity> {
   try {
     cached = JSON.parse(await readFile(file, "utf8")) as Partial<Identity>
   } catch {
-    // no cached identity at the new location — try the pre-rename path, then
-    // fall through to creating one
-    try {
-      const legacy = JSON.parse(
-        await readFile(`${homedir()}/.cache/${LEGACY_IDENTITY_DIR}/${IDENTITY_FILE}`, "utf8"),
-      ) as Partial<Identity>
-      if (typeof legacy.seed === "string" || typeof legacy.id === "string") {
-        cached = legacy
-        // re-save below under the new path so the pubkey stays stable
-        migratedFromLegacy = true
+    // no cached identity at the new location — try the pre-rename paths
+    // (agentmesh first, then the original opencode-chat), then fall through
+    // to creating one
+    for (const legacyDir of LEGACY_IDENTITY_DIRS) {
+      try {
+        const legacy = JSON.parse(
+          await readFile(`${homedir()}/.cache/${legacyDir}/${IDENTITY_FILE}`, "utf8"),
+        ) as Partial<Identity>
+        if (typeof legacy.seed === "string" || typeof legacy.id === "string") {
+          cached = legacy
+          // re-save below under the new path so the pubkey stays stable
+          migratedFromLegacy = true
+          break
+        }
+      } catch {
+        // keep walking the migration chain
       }
-    } catch {
-      // no legacy identity either
     }
   }
   let { seed } = cached
@@ -292,10 +298,25 @@ export async function startChat<TOOL>(
     typeof opts.persist === "string"
       ? opts.persist
       : (process.env.CODING_CHAT_PERSIST ?? "default")
-  const persistArgFor = (topic: Buffer): string | null => {
+  const persistArgFor = (topic: Buffer, roomName: string, roomSecret?: string): string | null => {
     if (persistOpt === "") return null
     if (persistOpt === "default") {
-      return join(homedir(), ".cache", "coding-chat", "history", `${topic.toString("hex")}.jsonl`)
+      const file = `${topic.toString("hex")}.jsonl`
+      const primary = join(homedir(), ".cache", "coding-chat", "history", file)
+      if (existsSync(primary)) return primary
+      // Rebrand migration: the topic prefix changed with the rename, so a
+      // pre-rename install persisted under a differently-named file. Probe
+      // legacy cache dirs with the legacy-prefix topic hash before creating
+      // a fresh history.
+      const legacyMaterial = roomSecret
+        ? `agentmesh:v${PROTOCOL_VERSION}:${roomName}:${roomSecret}`
+        : `agentmesh:v${PROTOCOL_VERSION}:${roomName}`
+      const legacyHex = createHash("sha256").update(legacyMaterial).digest("hex")
+      for (const legacyDir of LEGACY_HISTORY_DIRS) {
+        const legacyPath = join(homedir(), ".cache", legacyDir, "history", `${legacyHex}.jsonl`)
+        if (existsSync(legacyPath)) return legacyPath
+      }
+      return primary
     }
     return persistOpt
   }
@@ -359,8 +380,8 @@ export async function startChat<TOOL>(
         "--sync-count", String(syncCount),
         ...(cfg.allowKeys.size > 0 ? ["--allow", [...cfg.allowKeys].join(",")] : []),
         ...(cfg.allowFile ? ["--allow-file", cfg.allowFile] : []),
-        ...(persistArgFor(topicBuffer)
-          ? ["--persist", persistArgFor(topicBuffer)!]
+        ...(persistArgFor(topicBuffer, roomName, roomSecret)
+          ? ["--persist", persistArgFor(topicBuffer, roomName, roomSecret)!]
           : []),
       ],
       onChat: (msg) => incoming(msg, roomName),
@@ -447,26 +468,38 @@ export async function startChat<TOOL>(
   const roomsList = [...roomConfigs.keys()]
 
   // -------------------------------------------------------------------------
-  // Push feed: track the newest message id seen; before each model turn the
-  // host entry asks for messages since then and injects them as a synthetic
-  // user message. The cursor seeds from history on first turn so a fresh
-  // session doesn't replay the whole backlog as "new".
+  // Push feed: track the newest message timestamp seen; before each model
+  // turn the host entry asks for messages since then and injects them as a
+  // synthetic user message. Timestamp-based cursor is immune to ring-buffer
+  // eviction (unlike ID-based cursors) and correctly ignores history-sync
+  // replays that insert older messages behind the cursor.
   // -------------------------------------------------------------------------
   const feedEnabled = opts.feed !== false && process.env.CODING_CHAT_FEED !== "false"
   let feedCursor: string | null = null
+  let lastSeenTs: number = 0
 
   const pendingFeed = async (): Promise<string | null> => {
     if (!feedEnabled || !primarySidecar) return null
     try {
+      const { messages } = await primarySidecar.history(50)
+
+      // First call always seeds the cursor, even when history is empty (a
+      // freshly spawned sidecar) — otherwise the next turn would be spent
+      // seeding instead of injecting, silently delaying the first feed.
       if (feedCursor === null) {
-        const { messages } = await primarySidecar.history(1)
-        feedCursor = messages[0]?.id ?? ""
+        const latest = messages[messages.length - 1]
+        feedCursor = latest?.id ?? ""
+        lastSeenTs = latest?.ts ?? 0
         return null
       }
-      const { messages } = await primarySidecar.history(50, feedCursor || undefined)
-      if (messages.length === 0) return null
-      feedCursor = messages[messages.length - 1]!.id
-      const lines = messages.map((m) => {
+
+      const newMsgs = messages.filter((m) => m.ts > lastSeenTs)
+      if (newMsgs.length === 0) return null
+
+      feedCursor = newMsgs[newMsgs.length - 1]!.id
+      lastSeenTs = newMsgs[newMsgs.length - 1]!.ts
+
+      const lines = newMsgs.map((m) => {
         const mark = m.verified === "ok" ? "✓" : m.verified === "bad" ? "!" : " "
         return `[${formatTs(m.ts)}] ${mark} ${sanitizeForDisplay(m.name)}: ${sanitizeForDisplay(m.text).slice(0, 500)}`
       })

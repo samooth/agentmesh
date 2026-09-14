@@ -213,9 +213,12 @@ export class ChatSwarm {
   }
 
   private handleConnection(socket: Duplex, peerId: string): void {
-    // hyperswarm deduplicates peer pairs, but guard anyway
+    // hyperswarm deduplicates peer pairs, but guard anyway. Use end(), not
+    // destroy(): a duplicate socket belongs to a peer we are already talking
+    // to, and destroy()'s TCP RST can take down the *live* shared connection,
+    // producing a reconnect-churn loop (join/leave spam).
     if (this.connections.has(peerId)) {
-      socket.destroy()
+      socket.end()
       return
     }
 
@@ -231,7 +234,6 @@ export class ChatSwarm {
     socket.on("data", (chunk: Buffer) => {
       if (conn.closed) return
       conn.buffer += chunk.toString("utf8")
-      // hard cap to prevent a misbehaving peer from ballooning memory
       if (conn.buffer.length > MAX_CONN_BUFFER) {
         this.closeConnection(conn)
         return
@@ -247,7 +249,16 @@ export class ChatSwarm {
     })
 
     socket.on("close", () => this.closeConnection(conn))
-    socket.on("error", () => this.closeConnection(conn))
+    socket.on("error", (err) => {
+      // 'close' always follows 'error' on streams; log here only for
+      // diagnostics and let the close handler tear down once.
+      const errObj = err instanceof Error ? err : new Error(String(err))
+      this.log("socket error", {
+        peer: conn.peerId.slice(0, 8),
+        error: errObj.message,
+        code: (errObj as NodeJS.ErrnoException).code ?? "unknown",
+      })
+    })
 
     this.sendHello(conn)
   }

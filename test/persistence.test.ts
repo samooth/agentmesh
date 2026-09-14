@@ -17,7 +17,7 @@ import {
  * No DHT peers are needed — a single sidecar on an unguessable topic.
  */
 
-const NODE = process.env.OPENCODE_CHAT_NODE ?? "node"
+const NODE = process.env.CODING_CHAT_NODE ?? "node"
 const SIDECAR = new URL("../src/sidecar.ts", import.meta.url).pathname
 const room = uniqueRoom("persist")
 const topicHex = deriveTopic(room, uniqueSecret()).toString("hex")
@@ -101,10 +101,43 @@ describe("persistence", () => {
       await revived.ready
       const h = await revived.history(50)
       expect(h.messages.map((m) => m.text)).toContain("three")
+      // replayed messages keep their verified marker (signature re-checked
+      // against the persisted pk at replay, not silently downgraded)
+      const replayed = h.messages.find((m) => m.text === "three")!
+      expect(replayed.verified).toBe("ok")
       // local sends are signed and marked ok
       await revived.send("four")
       const after = await revived.history(1)
       expect(after.messages[0]!.verified).toBe("ok")
+      client = revived
+    } catch (err) {
+      await revived.destroy()
+      throw err
+    }
+  }, 30_000)
+
+  test("replay drops tampered persisted lines instead of trusting them", async () => {
+    // forge a line with a valid shape but a signature from another key
+    const forger = identityKeyPair("aa".repeat(32))
+    const forged = validateChatMessage({
+      kind: "chat",
+      id: crypto.randomUUID(),
+      from: "solo",
+      name: "solo",
+      text: "tampered persisted line",
+      ts: Date.now(),
+    })!
+    signChatMessage(forged, forger.secretKey)
+    // claim the real pk while the signature belongs to the forger
+    forged.pk = kp.publicKey.toString("hex")
+    await client.destroy()
+    const { appendFile } = await import("node:fs/promises")
+    await appendFile(persistPath, JSON.stringify(forged) + "\n")
+    const revived = spawn()
+    try {
+      await revived.ready
+      const h = await revived.history(50)
+      expect(h.messages.some((m) => m.text === "tampered persisted line")).toBe(false)
       client = revived
     } catch (err) {
       await revived.destroy()

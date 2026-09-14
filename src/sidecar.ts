@@ -4,7 +4,7 @@ import { dirname } from "node:path"
 import { ChatStore } from "./store.ts"
 import { ChatSwarm } from "./swarm.ts"
 import { parseAllowList } from "./keys.ts"
-import { validateChatMessage } from "./protocol.ts"
+import { validateChatMessage, verifyChatSignature } from "./protocol.ts"
 import { keyPair as keyPairFromSeed } from "hypercore-crypto"
 import type { IpcEvent, IpcRequest, IpcResponse, IpcResult } from "./ipc.ts"
 
@@ -100,7 +100,13 @@ async function replayPersistence(path: string): Promise<void> {
       if (line.length === 0) continue
       const parsed: unknown = JSON.parse(line)
       const msg = validateChatMessage(parsed)
-      if (msg !== null) msgs.push(msg)
+      if (msg === null) continue
+      // Re-verify on replay: persisted lines are as untrusted as the wire.
+      // A tampered file must not resurface as "ok", and old signed messages
+      // must keep their verified marker across restarts (pk is the verify key).
+      msg.verified = msg.pk ? verifyChatSignature(msg, msg.pk) : "unsigned"
+      if (msg.verified === "bad") continue
+      msgs.push(msg)
     }
     store.addManySilently(msgs.slice(-historyLimit))
     if (msgs.length > 0) {

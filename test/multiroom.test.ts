@@ -141,4 +141,39 @@ describe("multi-room", () => {
       await hooks.dispose()
     }
   }, 30_000)
+
+  test("pendingFeed delivers messages that arrived between turns", async () => {
+    await mkdir(CWD, { recursive: true })
+    const { host } = mockHost()
+    const hooks = await startChat(
+      { directory: CWD },
+      { room: uniqueRoom("feed"), secret: uniqueSecret(), name: "feed-probe", persist: "" },
+      host,
+    )
+    try {
+      const send = hooks.tool["agent_chat_send"] as {
+        execute(args: { text: string }): Promise<string>
+      }
+
+      // turn 1: seeds the feed cursor (nothing injected yet)
+      const first = await hooks.pendingFeed()
+      expect(first).toBeNull()
+
+      // messages arrive while the agent is mid-turn (no pendingFeed call)
+      await send.execute({ text: "the number is 434" })
+      await send.execute({ text: "now it is 3333" })
+
+      // next turn: the feed must surface them without manual history calls
+      const feed = await hooks.pendingFeed()
+      expect(feed).toContain("the number is 434")
+      expect(feed).toContain("now it is 3333")
+      expect(feed).toContain("[team agent chat — new messages in room")
+
+      // and no duplicates on the following turn
+      const again = await hooks.pendingFeed()
+      expect(again).toBeNull()
+    } finally {
+      await hooks.dispose()
+    }
+  }, 30_000)
 })
