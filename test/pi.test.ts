@@ -54,6 +54,7 @@ const ENV_KEYS = [
   "AGENTMESH_SYNC_COUNT",
   "AGENTMESH_NODE",
   "AGENTMESH_TOAST",
+  "AGENTMESH_PERSIST",
 ] as const
 
 const savedEnv: Record<string, string | undefined> = {}
@@ -98,6 +99,7 @@ describe("pi entry", () => {
     const room = uniqueRoom("pi-e2e")
     process.env.AGENTMESH_ROOM = room
     process.env.AGENTMESH_SECRET = uniqueSecret()
+    process.env.AGENTMESH_PERSIST = ""
     const pi = makeMockPi()
     piExtension(pi.api)
 

@@ -46,7 +46,7 @@ describe("sidecar resilience", () => {
     const { host } = mockHost()
     const hooks = await startChat(
       { directory: TEST_CWD },
-      { room: TEST_ROOM, secret: TEST_SECRET, name: "restart-probe" },
+      { room: TEST_ROOM, secret: TEST_SECRET, name: "restart-probe", persist: "" },
       host,
     )
     try {
@@ -79,7 +79,7 @@ describe("sidecar resilience", () => {
     const { host } = mockHost()
     const hooks = await startChat(
       { directory: TEST_CWD },
-      { room: TEST_ROOM, secret: TEST_SECRET, name: "restart-probe-2" },
+      { room: TEST_ROOM, secret: TEST_SECRET, name: "restart-probe-2", persist: "" },
       host,
     )
     hooks.debugSidecar()?.kill()

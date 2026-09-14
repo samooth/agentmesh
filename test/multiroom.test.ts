@@ -59,6 +59,7 @@ describe("multi-room", () => {
         room: ROOM_PRIMARY,
         secret: uniqueSecret(),
         name: "multi-probe",
+        persist: "",
         rooms: {
           [ROOM_SECONDARY]: uniqueSecret(),
         },
@@ -105,6 +106,7 @@ describe("multi-room", () => {
         room: ROOM_SYS,
         secret: uniqueSecret(),
         name: "probe",
+        persist: "",
         rooms: { [ROOM_SYS2]: "" },
       },
       host,
@@ -124,7 +126,7 @@ describe("multi-room", () => {
     const { host } = mockHost()
     const hooks = await startChat(
       { directory: CWD },
-      { room: ROOM_COMPACT, secret: uniqueSecret(), name: "probe" },
+      { room: ROOM_COMPACT, secret: uniqueSecret(), name: "probe", persist: "" },
       host,
     )
     try {
