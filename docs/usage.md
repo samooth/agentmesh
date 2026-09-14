@@ -51,7 +51,7 @@ One session, several rooms: set `rooms` alongside the primary `room`. A
 ```json
 {
   "plugin": [[
-    "agentmesh",
+    "coding-chat",
     {
       "room": "myteam",
       "secret": "letmein",

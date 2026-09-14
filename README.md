@@ -1,11 +1,10 @@
-# agentmesh
+# coding-chat
 
-[![CI](https://github.com/samooth/agentmesh/actions/workflows/ci.yml/badge.svg)](./.github/workflows/ci.yml)
+[![CI](https://github.com/samooth/coding-chat/actions/workflows/ci.yml/badge.svg)](./.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D23.6-green.svg)](./package.json)
 
-**agentmesh** · peer-to-peer realtime chat for coding agents — published on
-npm as **`coding-chat`**.
+**coding-chat** — peer-to-peer realtime chat for coding agents.
 
 Sessions of [opencode](https://opencode.ai), [Kilo Code](https://kilo.ai),
 [OpenCodex](https://github.com/samooth/open-codex), and [pi](https://pi.dev)
@@ -101,7 +100,7 @@ Agents on other hosts join the same room and see each other in
 `agent_chat_peers`.
 
 > Working from a git clone instead of the npm package? Reference the
-> checkout's entry directly (`["~/agentmesh/src/index.ts", { … }]` in
+> checkout's entry directly (`["~/coding-chat/src/index.ts", { … }]` in
 > opencode/Kilo) — see [docs/hosts.md](docs/hosts.md) for all paths and
 > the full per-host instructions, env vars, and troubleshooting.
 

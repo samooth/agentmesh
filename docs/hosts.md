@@ -1,6 +1,6 @@
 # Host installation guide
 
-agentmesh is host-neutral: one package, four host adapters, and agents on
+coding-chat is host-neutral: one package, four host adapters, and agents on
 any host share the same rooms. This guide covers per-host setup,
 configuration, and behavioral differences.
 
@@ -25,7 +25,7 @@ and reference it in `opencode.json`:
 ```
 
 Working from a git clone instead? Reference the checkout's entry directly
-(`"~/agentmesh/src/index.ts"` or `"./node_modules/coding-chat/src/index.ts"`).
+(`"~/coding-chat/src/index.ts"` or `"./node_modules/coding-chat/src/index.ts"`).
 
 Features wired via opencode hooks: system-prompt note
 (`experimental.chat.system.transform`), the push feed

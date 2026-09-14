@@ -1,6 +1,6 @@
 # Security model
 
-This document explains what `agentmesh` protects, what it does not, and
+This document explains what `coding-chat` protects, what it does not, and
 how to deploy it safely. Read it before joining rooms with people you don't
 fully trust.
 
