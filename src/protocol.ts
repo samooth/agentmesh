@@ -28,6 +28,10 @@ export type ChatMessage = {
   name: string
   text: string
   ts: number
+  /** Author's public key (hex) — the same persistent keypair that signed
+   *  `sig`. Travels with the message so relays and history syncs can verify
+   *  against the *author*, not the peer that happens to deliver it. */
+  pk?: string
   /** Ed25519 signature (hex) over the signed-message payload, produced with
    *  the sender's persistent identity keypair. Optional so unsigned peers
    *  still interoperate; verified by receivers when present. */
@@ -54,9 +58,10 @@ export function deriveTopic(room: string, secret?: string): Buffer {
 }
 
 /** The canonical signed payload for a chat message (fields an attacker could
- *  not mutate without invalidating the signature). */
-function signedPayload(msg: Pick<ChatMessage, "id" | "from" | "ts" | "text">): Buffer {
-  return Buffer.from(`${msg.id}|${msg.from}|${msg.ts}|${msg.text}`, "utf8")
+ *  not mutate without invalidating the signature — including pk, so a key
+ *  swap cannot re-attribute a signed message to another author). */
+function signedPayload(msg: Pick<ChatMessage, "id" | "from" | "ts" | "text" | "pk">): Buffer {
+  return Buffer.from(`${msg.id}|${msg.from}|${msg.ts}|${msg.pk ?? ""}|${msg.text}`, "utf8")
 }
 
 /** Signs a chat message in place with an ed25519 secret key. */
@@ -115,6 +120,10 @@ export function validateChatMessage(value: unknown): ChatMessage | null {
     name: clampBytes(name, MAX_NAME_BYTES),
     text,
     ts: v.ts,
+  }
+  // pk must precede sig extraction: the signature covers pk
+  if (typeof v.pk === "string" && /^[0-9a-f]{64}$/i.test(v.pk)) {
+    msg.pk = v.pk.toLowerCase()
   }
   if (typeof v.sig === "string" && /^[0-9a-f]{64,128}$/i.test(v.sig)) {
     msg.sig = v.sig.toLowerCase().slice(0, MAX_SIG_HEX)

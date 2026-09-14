@@ -58,6 +58,14 @@ export class ChatStore {
     return this.seen.has(id)
   }
 
+  /** True if any known peer uses this public key (impersonation check). */
+  hasKey(publicKeyHex: string): boolean {
+    for (const p of this.peers.values()) {
+      if (p.key === publicKeyHex) return true
+    }
+    return false
+  }
+
   history(limit: number, afterId?: string): ChatMessage[] {
     const all = this.messages
     if (afterId !== undefined) {

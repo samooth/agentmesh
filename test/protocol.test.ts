@@ -181,6 +181,25 @@ describe("message signing (ed25519)", () => {
     expect(verifyChatSignature(msg, kp.publicKey.toString("hex"))).toBe("ok")
   })
 
+  test("pk travels with the message and the signature covers it", () => {
+    const msg = makeMsg()!
+    msg.pk = kp.publicKey.toString("hex")
+    signChatMessage(msg, kp.secretKey)
+    // wire round-trip keeps pk + sig together
+    const back = validateChatMessage(JSON.parse(encodeLine(msg)))!
+    expect(back.pk).toBe(msg.pk)
+    expect(back.sig).toBe(msg.sig)
+    // verify against the author key (as a relay/sync receiver would)
+    expect(verifyChatSignature(back, back.pk)).toBe("ok")
+    // swapping pk to re-attribute authorship invalidates the signature
+    const stolen = { ...back, pk: identityKeyPair("44".repeat(32)).publicKey.toString("hex") }
+    expect(verifyChatSignature(stolen as never, stolen.pk)).toBe("bad")
+    // tampered pk on the wire also breaks verification
+    const tamperedPk = validateChatMessage({ ...back, pk: "ff".repeat(32) })!
+    tamperedPk.sig = back.sig
+    expect(verifyChatSignature(tamperedPk, tamperedPk.pk)).toBe("bad")
+  })
+
   test("signature survives wire round-trip and still verifies", () => {
     const msg = makeMsg()!
     signChatMessage(msg, kp.secretKey)

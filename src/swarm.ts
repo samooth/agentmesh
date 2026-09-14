@@ -154,6 +154,9 @@ export class ChatSwarm {
   /** Send a locally-authored message: store it, then broadcast. */
   sendChat(msg: ChatMessage): number {
     if (this.localSecretKey) {
+      // pk travels with the message so relays and history syncs verify
+      // against the author, not the peer delivering it
+      msg.pk = this.localPublicKeyHex
       signChatMessage(msg, this.localSecretKey)
       this.onPersist?.(msg)
     }
@@ -332,10 +335,25 @@ export class ChatSwarm {
   /** Validate + verify + dedupe + store + relay an inbound chat message. */
   private acceptChat(conn: PeerConnection, msg: ChatMessage): void {
     if (this.store.has(msg.id)) return
-    // Verify against the connection's actual noise public key when this
-    // peer has a stable key; ephemeral-key peers cannot be verified.
-    const claimedKey = conn.remotePk ?? conn.peerId
-    msg.verified = verifyChatSignature(msg, claimedKey)
+    // Verify against the author's key carried in the message (covers relays
+    // and history syncs); fall back to the connection key for direct sends
+    // from peers that haven't adopted pk yet. A pk disagreeing with the
+    // pinned connection key is an impersonation attempt.
+    let verifyKey: string | undefined
+    if (msg.pk) {
+      if (conn.remotePk && msg.pk !== conn.remotePk && this.store.hasKey(msg.pk)) {
+        this.log("dropped message with a key conflicting with a known peer", {
+          from: sanitizeForDisplay(msg.from).slice(0, 32),
+          claimed: msg.pk.slice(0, 8),
+          conn: conn.peerId.slice(0, 8),
+        })
+        return
+      }
+      verifyKey = msg.pk
+    } else {
+      verifyKey = conn.remotePk ?? conn.peerId
+    }
+    msg.verified = verifyChatSignature(msg, verifyKey)
     if (msg.verified === "bad") {
       this.log("dropped message with invalid signature", {
         from: sanitizeForDisplay(msg.from).slice(0, 32),
