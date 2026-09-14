@@ -23,12 +23,16 @@ const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`
-const brightBlue = (s: string) => `\x1b[94m${s}\x1b[0m`
+const brightCyan = (s: string) => `\x1b[96m${s}\x1b[0m`
+const brightGreen = (s: string) => `\x1b[92m${s}\x1b[0m`
+const brightYellow = (s: string) => `\x1b[93m${s}\x1b[0m`
+const brightMagenta = (s: string) => `\x1b[95m${s}\x1b[0m`
+const brightRed = (s: string) => `\x1b[91m${s}\x1b[0m`
 const gray = (s: string) => `\x1b[90m${s}\x1b[0m`
 const white = (s: string) => `\x1b[37m${s}\x1b[0m`
 
 // Color palette for author names (stable per name via hash)
-const AUTHOR_COLORS = [cyan, green, yellow, brightBlue, red]
+const AUTHOR_COLORS = [cyan, green, yellow, brightCyan, brightGreen, brightYellow, brightMagenta, brightRed]
 function authorColor(name: string): (s: string) => string {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
