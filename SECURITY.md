@@ -52,9 +52,9 @@ shipped default) silently land in the same room and exchange chat and
 ```json
 {
   "plugin": [[
-    "agentmesh",
-    {
-      "room": "myteam",
+     "coding-chat",
+     {
+       "room": "myteam",
       "secret": "rotate-me-quarterly",
       "allow": [
         "248acbdbaf9e050196de704bea2d68770e519150d103b587dae2d9cad53dd930",

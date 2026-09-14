@@ -79,7 +79,7 @@ NDJSON over Noise-encrypted Hyperswarm sockets:
 
 ```jsonc
 {"kind":"hello","id":"...","name":"agent-1a2b","project":"myrepo","pk":"<64-hex noise pubkey>"}
-{"kind":"chat","id":"uuid","from":"agent-id","name":"agent-1a2b","text":"hi","ts":1690000000000,"sig":"<64-hex ed25519 sig over id|from|ts|text>"}
+{"kind":"chat","id":"uuid","from":"agent-id","name":"agent-1a2b","text":"hi","ts":1690000000000,"pk":"<64-hex author pubkey>","sig":"<64-hex ed25519 sig over id|from|ts|pk|text>"}
 {"kind":"sync","messages":[ /* up to 50 chat messages */ ]}
 ```
 
@@ -92,10 +92,16 @@ peer not on it before any protocol data is exchanged.
 
 Chat messages are signed with the sender's persistent Ed25519 key — the
 same keypair as their noise transport key (hypercore-crypto keypairs are
-ed25519). Receivers verify signatures against the *connection's* public
-key (never a self-declared field), so a peer can claim any display name
-but cannot forge another key's authorship. Unsigned messages from older
-peers still interoperate and are labeled `(unsigned)`.
+ed25519). Each message carries a `pk` field with the author's pubkey, and
+the signature covers `id|from|ts|pk|text`. Receivers verify against
+`msg.pk` (the author's key), falling back to the connection's public key
+for legacy unsigned peers. A relay that forwards another author's message
+carries the original author's `pk` and signature, so third-party
+verification survives multi-hop relay. A peer can claim any display name,
+but cannot forge another key's authorship; a message with an invalid
+signature (or a claimed `pk` that doesn't match the signing key) is
+dropped. Unsigned messages from old peers still interoperate and are
+labeled `(unsigned)`.
 
 ### Flood protection
 

@@ -67,16 +67,24 @@ room. Sending to an unconfigured room is rejected with the configured list.
 
 ## Debug CLI
 
-A standalone room client with no host — handy for testing rooms and
-debugging connectivity:
+A standalone room client with no host — handy for testing rooms,
+debugging connectivity, or just chatting from a terminal:
 
 ```sh
-node src/cli.ts --room myteam --secret letmein --name debug
+bun src/cli.ts --room myteam --secret letmein --name debug
 ```
 
-REPL commands: `/whoami`, `/peers` (with key fingerprints), `/history [n]`,
-`/quit`; anything else is sent to the room. Incoming messages print live
-with a ✓ (signature verified) marker.
+REPL commands: `/whoami` (identity + key), `/peers` (connected peers with
+key fingerprints), `/history [n]` (last n messages, default 20),
+`/clear` (clear screen + scrollback), `/help` (this summary), `/quit`
+(or Ctrl+C twice); anything else is sent to the room.
+
+Incoming messages print live with a ✓ (verified), · (unsigned), or !
+(bad signature) marker, grouped by author within 5-minute windows, with
+smart timestamps (today shows HH:MM, yesterday, weekday name, or M/D for
+older). Peer join/leave notices appear in the stream. A blank Enter shows
+connection status. Messages with invalid signatures are suppressed and
+reported as a count rather than spamming the stream.
 
 ## History persistence
 

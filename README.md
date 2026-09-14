@@ -153,7 +153,7 @@ bun run typecheck
 bun test    # offline suites anywhere; DHT integration needs network
 ```
 
-90+ tests across 14 suites. CI runs offline suites on every push, retries
+94 tests across 16 files (11 offline + 5 network/DHT suites). CI runs offline suites on every push, retries
 DHT integration (announce races), and keeps an experimental Windows job.
 Details: [docs/development.md](docs/development.md).
 
