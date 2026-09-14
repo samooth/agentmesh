@@ -52,8 +52,8 @@ export type WireMessage = HelloMessage | ChatMessage | SyncMessage
 
 export function deriveTopic(room: string, secret?: string): Buffer {
   const material = secret
-    ? `agentmesh:v${PROTOCOL_VERSION}:${room}:${secret}`
-    : `agentmesh:v${PROTOCOL_VERSION}:${room}`
+    ? `coding-chat:v${PROTOCOL_VERSION}:${room}:${secret}`
+    : `coding-chat:v${PROTOCOL_VERSION}:${room}`
   return createHash("sha256").update(material).digest()
 }
 

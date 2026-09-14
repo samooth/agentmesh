@@ -13,7 +13,7 @@ const server: Plugin = async (input: PluginInput, options) => {
     log: async (message, extra) => {
       try {
         await input.client.app.log({
-          body: { service: "agentmesh", level: "info", message, extra: extra ?? {} },
+          body: { service: "coding-chat", level: "info", message, extra: extra ?? {} },
         })
       } catch {
         // logging is best-effort
@@ -78,4 +78,4 @@ const server: Plugin = async (input: PluginInput, options) => {
   return hooks
 }
 
-export default { id: "agentmesh", server }
+export default { id: "coding-chat", server }

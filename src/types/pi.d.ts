@@ -1,6 +1,6 @@
 /**
  * Ambient type declarations for the pi coding agent extension API
- * (https://pi.dev/docs/latest/extensions), limited to the surface agentmesh
+ * (https://pi.dev/docs/latest/extensions), limited to the surface coding-chat
  * uses. The real package is @earendil-works/pi-coding-agent; these
  * declarations let the repo typecheck without installing it, and the pi
  * entry imports only documented, stable API.

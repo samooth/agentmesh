@@ -83,7 +83,7 @@ NDJSON over Noise-encrypted Hyperswarm sockets:
 {"kind":"sync","messages":[ /* up to 50 chat messages */ ]}
 ```
 
-Topic = `sha256("agentmesh:v1:<room>[:<secret>]")`. Every peer joins in
+Topic = `sha256("coding-chat:v1:<room>[:<secret>]")`. Every peer joins in
 server+client mode and re-announces every 10s so simultaneous joiners
 converge. When an `allow` list is set, the Hyperswarm firewall rejects any
 peer not on it before any protocol data is exchanged.

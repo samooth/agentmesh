@@ -16,7 +16,7 @@ const ROOM_SECONDARY = uniqueRoom("multi-secondary")
 const ROOM_SYS = uniqueRoom("sys-primary")
 const ROOM_SYS2 = uniqueRoom("sys-2")
 const ROOM_COMPACT = uniqueRoom("compact-room")
-const ENV_KEYS = ["AGENTMESH_NODE", "AGENTMESH_ALLOW_FILE", "AGENTMESH_PERSIST"] as const
+const ENV_KEYS = ["CODING_CHAT_NODE", "CODING_CHAT_ALLOW_FILE", "CODING_CHAT_PERSIST"] as const
 const savedEnv: Record<string, string | undefined> = {}
 for (const key of ENV_KEYS) {
   savedEnv[key] = process.env[key]

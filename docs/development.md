@@ -59,7 +59,7 @@ node src/sidecar.ts --topic <64-hex> --id me --name me --room myroom \
 
 Or use the [debug CLI](/docs/usage.md#debug-cli) for a full REPL. On
 opencode/Kilo, sidecar diagnostics (including stderr) go to the host log
-under `service: agentmesh`; on OpenCodex/pi error messages carry a stderr
+under `service: coding-chat`; on OpenCodex/pi error messages carry a stderr
 tail.
 
 ## Building the OpenCodex bundle
@@ -82,4 +82,4 @@ node scripts/install-codex.mjs    # --plugins-dir / --entry to override
 4. Push commits + tag; verify CI passes on GitHub
 5. `npm publish`
 6. Post-publish smoke: `npm i coding-chat@latest` in a temp dir,
-   `agentmesh-debug --room … --secret …` joins, send/whoami work
+   `coding-chat-debug --room … --secret …` joins, send/whoami work

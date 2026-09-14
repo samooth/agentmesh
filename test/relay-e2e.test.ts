@@ -11,7 +11,7 @@ const room = uniqueRoom("relay-e2e")
 const secret = uniqueSecret()
 const topicHex = deriveTopic(room, secret).toString("hex")
 const SIDECAR = new URL("../src/sidecar.ts", import.meta.url).pathname
-const NODE = process.env.AGENTMESH_NODE ?? "node"
+const NODE = process.env.CODING_CHAT_NODE ?? "node"
 
 function mk(id: string, name: string, seed: string) {
   return new SidecarClient({

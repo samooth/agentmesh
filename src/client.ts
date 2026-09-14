@@ -51,7 +51,7 @@ export async function checkNodeVersion(
     if (major < wantMajor || (major === wantMajor && minor < wantMinor)) {
       nodeVersionCheck = {
         ok: false,
-        error: `coding-chat: Node >= ${wantMajor}.${wantMinor} is required to run the swarm sidecar (found ${raw.trim()}). Install a newer Node or point the \`node\` option / AGENTMESH_NODE at one.`,
+        error: `coding-chat: Node >= ${wantMajor}.${wantMinor} is required to run the swarm sidecar (found ${raw.trim()}). Install a newer Node or point the \`node\` option / CODING_CHAT_NODE at one.`,
       }
       return nodeVersionCheck
     }
@@ -62,7 +62,7 @@ export async function checkNodeVersion(
     if (code === "ENOENT") {
       const result = {
         ok: false as const,
-        error: `coding-chat: Node binary "${node}" not found. Install Node >= ${MIN_NODE_VERSION[0]}.${MIN_NODE_VERSION[1]} or set the \`node\` option / AGENTMESH_NODE.`,
+        error: `coding-chat: Node binary "${node}" not found. Install Node >= ${MIN_NODE_VERSION[0]}.${MIN_NODE_VERSION[1]} or set the \`node\` option / CODING_CHAT_NODE.`,
       }
       if (opts?.useCache !== false) nodeVersionCheck = result
       return result
@@ -197,7 +197,7 @@ export class SidecarClient {
       if (!this.readySettled) {
         // ready promise not yet settled; reject it so callers see the failure
         this.rejectReady(
-          new Error(`agentmesh sidecar exited before becoming ready (code ${code})`),
+          new Error(`coding-chat sidecar exited before becoming ready (code ${code})`),
         )
       }
     })
@@ -283,7 +283,7 @@ export class SidecarClient {
   private call(cmd: string, arg?: unknown, afterId?: string): Promise<IpcResponse> {
     return new Promise((resolve, reject) => {
       if (!this.child || this.exited) {
-        reject(new Error("agentmesh sidecar is not running"))
+        reject(new Error("coding-chat sidecar is not running"))
         return
       }
       const id = crypto.randomUUID()

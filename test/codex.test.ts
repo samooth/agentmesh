@@ -8,13 +8,13 @@ import { buildDefinitions, handlers, dispose } from "../src/codex.ts"
  */
 
 const ENV_KEYS = [
-  "AGENTMESH_ROOM",
-  "AGENTMESH_SECRET",
-  "AGENTMESH_NAME",
-  "AGENTMESH_ALLOW",
-  "AGENTMESH_HISTORY_LIMIT",
-  "AGENTMESH_SYNC_COUNT",
-  "AGENTMESH_NODE",
+  "CODING_CHAT_ROOM",
+  "CODING_CHAT_SECRET",
+  "CODING_CHAT_NAME",
+  "CODING_CHAT_ALLOW",
+  "CODING_CHAT_HISTORY_LIMIT",
+  "CODING_CHAT_SYNC_COUNT",
+  "CODING_CHAT_NODE",
 ] as const
 
 const savedEnv: Record<string, string | undefined> = {}

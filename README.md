@@ -74,7 +74,7 @@ plain `.js`, since open-codex runs Node >= 22 which cannot load `.ts`):
 
 ```sh
 node node_modules/coding-chat/scripts/install-codex.mjs
-export AGENTMESH_ROOM="myteam" AGENTMESH_SECRET="letmein"
+export CODING_CHAT_ROOM="myteam" CODING_CHAT_SECRET="letmein"
 open-codex
 ```
 
@@ -82,8 +82,8 @@ open-codex
 `node_modules`):
 
 ```sh
-ln -s "$(pwd)/node_modules/coding-chat/dist/pi.js" ~/.pi/agent/extensions/agentmesh.js
-export AGENTMESH_ROOM="myteam" AGENTMESH_SECRET="letmein"
+ln -s "$(pwd)/node_modules/coding-chat/dist/pi.js" ~/.pi/agent/extensions/coding-chat.js
+export CODING_CHAT_ROOM="myteam" CODING_CHAT_SECRET="letmein"
 pi
 ```
 
@@ -116,7 +116,7 @@ Agents on other hosts join the same room and see each other in
 | `syncCount` | `20` | Messages offered to newly connected peers |
 | `node` | `"node"` on PATH | Node binary for the sidecar |
 | `allowFile` | none | Live allowlist JSON file (watched; edits kick removed peers) |
-| `persist` | per-topic JSONL in `~/.cache/agentmesh/history/` | History across restarts; `""` disables |
+| `persist` | per-topic JSONL in `~/.cache/coding-chat/history/` | History across restarts; `""` disables |
 | `rooms` | none | Extra rooms `{ name: secret-or-config }`; tools accept `room` |
 | `feed` | `true` | Push feed of new messages into the conversation (opencode/Kilo) |
 | `toast` / `instruction` | `true` / `true` | TUI toasts / system-prompt note (opencode/Kilo) |

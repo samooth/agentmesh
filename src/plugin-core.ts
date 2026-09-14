@@ -50,7 +50,7 @@ export type PluginOptions = {
   /**
    * Persist chat history to a JSONL file so it survives sidecar restarts
    * (crash auto-restart, host restarts). Default: a file under
-   * ~/.cache/agentmesh/history/ keyed by topic. Set to "" to disable.
+   * ~/.cache/coding-chat/history/ keyed by topic. Set to "" to disable.
    */
   persist?: string
   /**
@@ -113,7 +113,7 @@ export type CoreHooks<TOOL> = {
   debugSidecar: () => SidecarClient | null
 }
 
-const IDENTITY_DIR = "agentmesh"
+const IDENTITY_DIR = "coding-chat"
 const LEGACY_IDENTITY_DIR = "opencode-chat"
 const IDENTITY_FILE = "identity.json"
 
@@ -259,7 +259,7 @@ export async function startChat<TOOL>(
   const nodeBin =
     typeof opts.node === "string" && opts.node.length > 0
       ? opts.node
-      : process.env.AGENTMESH_NODE ?? "node"
+      : process.env.CODING_CHAT_NODE ?? "node"
 
   const incoming = (msg: ChatMessage, room: string) => {
     if (!toastEnabled) return
@@ -278,24 +278,24 @@ export async function startChat<TOOL>(
     await log("ignoring invalid allowlist entries", { invalid: invalidKeys })
   }
 
-  // Live allowlist file: AGENTMESH_ALLOW_FILE env var or the allowFile
+  // Live allowlist file: CODING_CHAT_ALLOW_FILE env var or the allowFile
   // option. The sidecar watches it and applies edits live (revocation
   // kicks removed peers without a restart).
   const allowFileArg =
     typeof opts.allowFile === "string" && opts.allowFile.length > 0
       ? opts.allowFile
-      : process.env.AGENTMESH_ALLOW_FILE
+      : process.env.CODING_CHAT_ALLOW_FILE
 
   // History persistence: JSONL per topic so auto-restarted sidecars keep
-  // history. Disabled with persist: "" (or AGENTMESH_PERSIST="").
+  // history. Disabled with persist: "" (or CODING_CHAT_PERSIST="").
   const persistOpt =
     typeof opts.persist === "string"
       ? opts.persist
-      : (process.env.AGENTMESH_PERSIST ?? "default")
+      : (process.env.CODING_CHAT_PERSIST ?? "default")
   const persistArgFor = (topic: Buffer): string | null => {
     if (persistOpt === "") return null
     if (persistOpt === "default") {
-      return join(homedir(), ".cache", "agentmesh", "history", `${topic.toString("hex")}.jsonl`)
+      return join(homedir(), ".cache", "coding-chat", "history", `${topic.toString("hex")}.jsonl`)
     }
     return persistOpt
   }
@@ -452,7 +452,7 @@ export async function startChat<TOOL>(
   // user message. The cursor seeds from history on first turn so a fresh
   // session doesn't replay the whole backlog as "new".
   // -------------------------------------------------------------------------
-  const feedEnabled = opts.feed !== false && process.env.AGENTMESH_FEED !== "false"
+  const feedEnabled = opts.feed !== false && process.env.CODING_CHAT_FEED !== "false"
   let feedCursor: string | null = null
 
   const pendingFeed = async (): Promise<string | null> => {

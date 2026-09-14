@@ -46,15 +46,15 @@ function makeMockPi() {
 }
 
 const ENV_KEYS = [
-  "AGENTMESH_ROOM",
-  "AGENTMESH_SECRET",
-  "AGENTMESH_NAME",
-  "AGENTMESH_ALLOW",
-  "AGENTMESH_HISTORY_LIMIT",
-  "AGENTMESH_SYNC_COUNT",
-  "AGENTMESH_NODE",
-  "AGENTMESH_TOAST",
-  "AGENTMESH_PERSIST",
+  "CODING_CHAT_ROOM",
+  "CODING_CHAT_SECRET",
+  "CODING_CHAT_NAME",
+  "CODING_CHAT_ALLOW",
+  "CODING_CHAT_HISTORY_LIMIT",
+  "CODING_CHAT_SYNC_COUNT",
+  "CODING_CHAT_NODE",
+  "CODING_CHAT_TOAST",
+  "CODING_CHAT_PERSIST",
 ] as const
 
 const savedEnv: Record<string, string | undefined> = {}
@@ -97,9 +97,9 @@ describe("pi entry", () => {
 
   test("enabled e2e: send + whoami through the real sidecar, toast bound at session_start", async () => {
     const room = uniqueRoom("pi-e2e")
-    process.env.AGENTMESH_ROOM = room
-    process.env.AGENTMESH_SECRET = uniqueSecret()
-    process.env.AGENTMESH_PERSIST = ""
+    process.env.CODING_CHAT_ROOM = room
+    process.env.CODING_CHAT_SECRET = uniqueSecret()
+    process.env.CODING_CHAT_PERSIST = ""
     const pi = makeMockPi()
     piExtension(pi.api)
 

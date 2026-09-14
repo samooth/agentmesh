@@ -10,7 +10,7 @@ import type { Plugin } from "@opencode-ai/plugin"
  */
 
 const mockInput = {
-  directory: join(tmpdir(), "agentmesh-entry-shape-test"),
+  directory: join(tmpdir(), "coding-chat-entry-shape-test"),
   client: {
     app: {
       log: async () => true,
@@ -51,7 +51,7 @@ describe("opencode entry shape", () => {
 describe("kilo entry shape", () => {
   test("default export is { id, server } descriptor", async () => {
     const mod = await import("../src/kilo.ts")
-    expect(mod.default.id).toBe("agentmesh")
+    expect(mod.default.id).toBe("coding-chat")
     expect(typeof mod.default.server).toBe("function")
     const hooks = await mod.default.server(mockInput as never, {})
     expect(Object.keys(hooks.tool ?? {})).toEqual([

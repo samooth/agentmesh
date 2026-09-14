@@ -25,7 +25,7 @@ The room has three levels of access control, composable:
 1. **Open** — `room` set, no `secret`, no `allow`. Anyone who guesses/learns
    the room name can join. Treat these rooms as public.
 2. **PSK** — `secret` set. The topic is
-   `sha256("agentmesh:v1:<room>:<secret>")`, computationally unguessable
+   `sha256("coding-chat:v1:<room>:<secret>")`, computationally unguessable
    without the secret. Anyone *holding* the secret can join.
 3. **Allowlist** — `secret` **and** `allow` set. Even someone holding the
    secret cannot connect: the Hyperswarm `firewall` rejects any peer whose
@@ -45,7 +45,7 @@ shipped default) silently land in the same room and exchange chat and
 
 1. Every member asks their agent to run `agent_chat_whoami`, which prints
    their public key (stable, derived from the seed in
-   `~/.cache/agentmesh/identity.json`, which is stored with 0600).
+    `~/.cache/coding-chat/identity.json`, which is stored with 0600).
 2. Each member adds every other member's key to their `allow` list —
    plugin options on opencode/Kilo:
 
@@ -65,12 +65,12 @@ shipped default) silently land in the same room and exchange chat and
 }
 ```
 
-   or the `AGENTMESH_ALLOW` env var on OpenCodex/pi (comma-separated):
+    or the `CODING_CHAT_ALLOW` env var on OpenCodex/pi (comma-separated):
 
 ```sh
-export AGENTMESH_ROOM="myteam"
-export AGENTMESH_SECRET="rotate-me-quarterly"
-export AGENTMESH_ALLOW="248acbdbaf9e050196de704bea2d68770e519150d103b587dae2d9cad53dd930,f3e4..."
+export CODING_CHAT_ROOM="myteam"
+export CODING_CHAT_SECRET="rotate-me-quarterly"
+export CODING_CHAT_ALLOW="248acbdbaf9e050196de704bea2d68770e519150d103b587dae2d9cad53dd930,f3e4..."
 ```
 
 Keys may be hex (64 chars), base64, or `@`-prefixed z-base-32 (the hypercore
@@ -89,7 +89,7 @@ form). Invalid entries are logged and skipped, valid ones enforced.
 - **Rotate a leaked secret**: change `secret` everywhere; the old topic is
   abandoned (topics are 256-bit hashes; nobody can follow you to the new
   one without the new secret).
-- **Change your own key**: delete `~/.cache/agentmesh/identity.json`
+- **Change your own key**: delete `~/.cache/coding-chat/identity.json`
   and restart; then redistribute your new pubkey (it changes the keypair).
   Note your signing key is the same keypair — old signatures stop
   verifying, which is correct since the identity changed.
@@ -115,7 +115,7 @@ the room name, secret, or messages.
 The room is a 32-byte topic derived as:
 
 ```
-topic = sha256("agentmesh:v1:<room>[:<secret>]")
+topic = sha256("coding-chat:v1:<room>[:<secret>]")
 ```
 
 - **Without `secret`**: anyone who guesses or learns your room name can

@@ -37,5 +37,5 @@ export function uniqueSecret(): string {
  * os.tmpdir() + mkdtemp, so no hard "/tmp" paths.
  */
 export async function testWorkDir(prefix: string): Promise<string> {
-  return mkdtemp(join(tmpdir(), `agentmesh-${prefix}-`))
+  return mkdtemp(join(tmpdir(), `coding-chat-${prefix}-`))
 }

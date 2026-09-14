@@ -6,14 +6,14 @@
  * that receives ExtensionAPI. Differences from the opencode/Kilo hosts:
  *
  * - no options channel for extensions — configuration comes from
- *   AGENTMESH_* environment variables (same scheme as the OpenCodex host)
+ *   CODING_CHAT_* environment variables (same scheme as the OpenCodex host)
  * - tools are registered one-by-one with TypeBox parameter schemas
  * - guidance belongs in promptGuidelines (pi's native system-prompt hook)
  * - the factory must not start background resources, so the swarm starts
  *   lazily on the first tool call and is torn down on session_shutdown
  *
  * Install (from a checkout): copy or symlink this file (or the repo) into
- * ~/.pi/agent/extensions/ and set AGENTMESH_ROOM/AGENTMESH_SECRET.
+ * ~/.pi/agent/extensions/ and set CODING_CHAT_ROOM/CODING_CHAT_SECRET.
  */
 
 import type {
@@ -25,23 +25,23 @@ import type {
 import { Type } from "typebox"
 import { startChat, type CoreHooks } from "./plugin-core.ts"
 
-export default function agentmeshPi(pi: ExtensionAPI): void {
+export default function codingChatPi(pi: ExtensionAPI): void {
   let corePromise: Promise<CoreHooks<unknown>> | null = null
   let notify: ((message: string, type?: "info" | "warning" | "error") => void) | null = null
-  let toastEnabled = process.env.AGENTMESH_TOAST !== "false"
+  let toastEnabled = process.env.CODING_CHAT_TOAST !== "false"
   let pendingToasts: Array<{ message: string; type: "info" | "warning" | "error" }> = []
 
   function envOptions(): Record<string, unknown> {
     const opts: Record<string, unknown> = {}
-    if (process.env.AGENTMESH_ROOM) opts.room = process.env.AGENTMESH_ROOM
-    if (process.env.AGENTMESH_SECRET) opts.secret = process.env.AGENTMESH_SECRET
-    if (process.env.AGENTMESH_NAME) opts.name = process.env.AGENTMESH_NAME
-    if (process.env.AGENTMESH_ALLOW) opts.allow = process.env.AGENTMESH_ALLOW
-    if (process.env.AGENTMESH_HISTORY_LIMIT)
-      opts.historyLimit = Number(process.env.AGENTMESH_HISTORY_LIMIT)
-    if (process.env.AGENTMESH_SYNC_COUNT) opts.syncCount = Number(process.env.AGENTMESH_SYNC_COUNT)
-    if (process.env.AGENTMESH_NODE) opts.node = process.env.AGENTMESH_NODE
-    // read by plugin-core directly: AGENTMESH_ALLOW_FILE, AGENTMESH_PERSIST
+    if (process.env.CODING_CHAT_ROOM) opts.room = process.env.CODING_CHAT_ROOM
+    if (process.env.CODING_CHAT_SECRET) opts.secret = process.env.CODING_CHAT_SECRET
+    if (process.env.CODING_CHAT_NAME) opts.name = process.env.CODING_CHAT_NAME
+    if (process.env.CODING_CHAT_ALLOW) opts.allow = process.env.CODING_CHAT_ALLOW
+    if (process.env.CODING_CHAT_HISTORY_LIMIT)
+      opts.historyLimit = Number(process.env.CODING_CHAT_HISTORY_LIMIT)
+    if (process.env.CODING_CHAT_SYNC_COUNT) opts.syncCount = Number(process.env.CODING_CHAT_SYNC_COUNT)
+    if (process.env.CODING_CHAT_NODE) opts.node = process.env.CODING_CHAT_NODE
+    // read by plugin-core directly: CODING_CHAT_ALLOW_FILE, CODING_CHAT_PERSIST
     return opts
   }
 
@@ -94,7 +94,7 @@ export default function agentmeshPi(pi: ExtensionAPI): void {
       | { execute(args: unknown): Promise<string> }
       | undefined
     if (!tool) {
-      return { content: [{ type: "text", text: "agentmesh: tool unavailable" }], details: {} }
+      return { content: [{ type: "text", text: "coding-chat: tool unavailable" }], details: {} }
     }
     const text = await tool.execute(args)
     return { content: [{ type: "text", text }], details: {} }
@@ -183,12 +183,12 @@ export default function agentmeshPi(pi: ExtensionAPI): void {
   pi.registerTool(whoami)
 
   pi.registerCommand("mesh", {
-    description: "Show agentmesh room status and recent activity",
+    description: "Show coding-chat room status and recent activity",
     handler: async (_args: string, ctx: ExtensionContext) => {
       const core = await getCore()
       const peers = core.tool["agent_chat_peers"] as { execute(args: unknown): Promise<string> }
       const summary = await peers.execute({})
-      ctx.ui.notify(`agentmesh\n${summary}`, "info")
+      ctx.ui.notify(`coding-chat\n${summary}`, "info")
     },
   })
 

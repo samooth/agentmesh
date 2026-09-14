@@ -44,7 +44,7 @@
     "LICENSE"
   ],
   "bin": {
-    "agentmesh-debug": "./src/cli.ts"
+    "coding-chat": "./src/cli.ts"
   },
   "scripts": {
     "test": "bun test",

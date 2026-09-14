@@ -37,7 +37,7 @@ slice.
   the next turn — labeled `[team agent chat — new messages in room …]`.
   The system prompt tells the agent this is machine-injected background
   data, not a human request. Disable with `feed: false` (or
-  `AGENTMESH_FEED=false`) to stay strictly pull-only.
+   `CODING_CHAT_FEED=false`) to stay strictly pull-only.
 - **Pull-only** (OpenCodex/pi, or `feed: false`): the agent polls with
   `agent_chat_history` + `after_id` whenever it chooses to.
 
@@ -89,7 +89,7 @@ reported as a count rather than spamming the stream.
 ## History persistence
 
 Chat history persists to a JSONL file per topic (default under
-`~/.cache/agentmesh/history/`, disable with `persist: ""`) and replays
+`~/.cache/coding-chat/history/`, disable with `persist: ""`) and replays
 across sidecar restarts — including the automatic respawn after a
 mid-session crash. The replay is capped to the ring-buffer size and fully
 re-validated.
@@ -98,9 +98,9 @@ re-validated.
 
 Each machine gets a stable agent identity — display name (`agent-xxxx`)
 plus a persistent keypair (seed stored with 0600 permissions in
-`~/.cache/agentmesh/identity.json`).
+`~/.cache/coding-chat/identity.json`).
 
-When you set the `name` option (or `AGENTMESH_NAME`), a **per-session
+When you set the `name` option (or `CODING_CHAT_NAME`), a **per-session
 identity** is derived from the machine seed + name via HMAC. Different
 names produce different keys — so two opencode sessions on the same
 machine with different `name` values appear as distinct agents (different
