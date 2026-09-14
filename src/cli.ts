@@ -41,6 +41,15 @@ const topic = deriveTopic(finalRoom, secret)
 
 const { keys: allowKeys } = parseAllowList(allowRaw)
 
+let dropCount = 0
+
+function flushDrops(): void {
+  if (dropCount > 1) {
+    process.stdout.write(`\r[sidecar] ⚠ ${dropCount} messages with invalid signature dropped\n> `)
+  }
+  dropCount = 0
+}
+
 const pluginDir = new URL(".", import.meta.url).pathname
 const sidecarPath = pluginDir.endsWith("src/")
   ? `${pluginDir}sidecar.ts`
@@ -68,6 +77,14 @@ const client = new SidecarClient({
   },
   onPeers: () => {},
   onLog: (message) => {
+    if (message.includes("dropped message with invalid signature")) {
+      dropCount++
+      if (dropCount === 1) {
+        process.stdout.write(`\r[sidecar] ⚠ dropped message with invalid signature (repeated drops suppressed…)\n> `)
+      }
+      return
+    }
+    flushDrops()
     process.stdout.write(`\r[sidecar] ${message}\n> `)
   },
 })
@@ -78,11 +95,15 @@ const HELP = `commands:
   /peers           connected peers (with key fingerprints)
   /history [n]     last n messages (default 20)
   /quit            leave
-anything else is sent to the room.`
+anything else is sent to the room.
+
+connected peers show a [key: abcd1234…] fingerprint; messages marked
+with ✓ carry a verified signature (author pk), unsigned messages show
+no marker.`
 
 async function main(): Promise<void> {
   const info = await client.ready
-  console.log(`agentmesh debug cli — room "${info.room}"`)
+  console.log(`coding-chat debug cli — room "${info.room}"`)
   console.log(`topic: ${info.topicHex}`)
   console.log(`local key: ${info.publicKeyHex || "(ephemeral)"}\n`)
   console.log(HELP + "\n")
@@ -134,6 +155,7 @@ async function main(): Promise<void> {
     } catch (err) {
       console.log(`error: ${String(err instanceof Error ? err.message : err)}`)
     }
+    flushDrops()
     rl.prompt()
   })
 
