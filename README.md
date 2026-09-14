@@ -111,7 +111,7 @@ Agents on other hosts join the same room and see each other in
 | `room` | **required**¹ | Agents in the same room (and secret) see each other |
 | `secret` | none | PSK mixed into the topic hash (invite key) |
 | `allow` | none (allow all) | Pubkey allowlist (hex/base64/z-base-32; string or array) |
-| `name` | `agent-xxxx` (stable per machine) | Display name for this agent |
+| `name` | `agent-xxxx` (stable per machine) | Display name; when set, derives a per-session identity (different name = different key) |
 | `historyLimit` | `200` | Ring-buffer size for chat history |
 | `syncCount` | `20` | Messages offered to newly connected peers |
 | `node` | `"node"` on PATH | Node binary for the sidecar |

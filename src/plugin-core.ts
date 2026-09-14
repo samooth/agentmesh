@@ -4,6 +4,7 @@ import { SidecarClient, checkNodeVersion } from "./client.ts"
 import { parseAllowList } from "./keys.ts"
 import { resolveRoom } from "./policy.ts"
 import { systemInstruction, systemInstructionDisabled, toolsFor } from "./tools.ts"
+import { createHmac } from "node:crypto"
 import { existsSync } from "node:fs"
 import { mkdir, readFile, writeFile, chmod } from "node:fs/promises"
 import { homedir } from "node:os"
@@ -141,7 +142,7 @@ async function loadOrCreateIdentity(explicitName?: string): Promise<Identity> {
       // no legacy identity either
     }
   }
-  let { id, name, seed } = cached
+  let { seed } = cached
   let dirty = migratedFromLegacy
   if (typeof seed !== "string" || !/^[0-9a-f]{64}$/.test(seed)) {
     // 256-bit seed: two UUIDs' random halves concatenated to 64 hex chars
@@ -149,19 +150,32 @@ async function loadOrCreateIdentity(explicitName?: string): Promise<Identity> {
       crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "")
     dirty = true
   }
+
+  // --- per-session identity ---
+  // When an explicit name is provided, derive a per-session seed from the
+  // machine seed + name.  This gives each named session its own keypair so
+  // two opencode instances on the same machine don't collide.
   if (explicitName && explicitName.length > 0) {
-    if (name !== explicitName) dirty = true
-    name = sliceBytes(explicitName, MAX_NAME_BYTES)
-  } else if (typeof name !== "string" || name.length === 0) {
+    const derivedSeed = deriveSeed(seed, explicitName)
+    return {
+      id: Buffer.from(`nm:${explicitName}`).toString("base64url").slice(0, 43),
+      name: sliceBytes(explicitName, MAX_NAME_BYTES),
+      seed: derivedSeed,
+    }
+  }
+
+  // --- machine identity (no explicit name) ---
+  let name = cached.name
+  let id = cached.id
+  if (typeof name !== "string" || name.length === 0) {
     name = `agent-${seed.slice(0, 4)}`
     dirty = true
   }
   if (typeof id !== "string" || id.length === 0) {
-    id = explicitName
-      ? stableIdFromName(explicitName)
-      : Buffer.from(`seed:${seed}`).toString("base64url").slice(0, 43)
+    id = Buffer.from(`seed:${seed}`).toString("base64url").slice(0, 43)
     dirty = true
   }
+
   if (dirty) {
     try {
       await mkdir(dir, { recursive: true })
@@ -174,9 +188,13 @@ async function loadOrCreateIdentity(explicitName?: string): Promise<Identity> {
   return { id, name, seed }
 }
 
-function stableIdFromName(name: string): string {
-  // deterministic id so peers see the same logical agent across restarts
-  return Buffer.from(`nm:${name}`).toString("base64url").slice(0, 43)
+/** Derive a deterministic per-session seed from the machine seed + name.
+ *  HMAC-SHA256 with a fixed key gives a unique 32-byte value per
+ *  (machineSeed, name) pair without leaking the root seed. */
+function deriveSeed(machineSeed: string, name: string): string {
+  const key = Buffer.from("coding-chat-session-identity", "utf8")
+  const data = Buffer.from(`${machineSeed}:${name}`, "utf8")
+  return createHmac("sha256", key).update(data).digest("hex")
 }
 
 function sliceBytes(s: string, maxBytes: number): string {

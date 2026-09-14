@@ -90,12 +90,18 @@ re-validated.
 
 Each machine gets a stable agent identity — display name (`agent-xxxx`)
 plus a persistent keypair (seed stored with 0600 permissions in
-`~/.cache/agentmesh/identity.json`) — shared by all hosts, so your
-opencode, Kilo, OpenCodex, and pi sessions present as the same agent. To
-find your public key, ask the agent to run `agent_chat_whoami`; share that
-64-hex key with teammates for their `allow` lists. Set the `name` option
-(or `AGENTMESH_NAME`) to override the display name without changing the
-key.
+`~/.cache/agentmesh/identity.json`).
+
+When you set the `name` option (or `AGENTMESH_NAME`), a **per-session
+identity** is derived from the machine seed + name via HMAC. Different
+names produce different keys — so two opencode sessions on the same
+machine with different `name` values appear as distinct agents (different
+pubkeys, different names). The same name always derives the same key
+(stable across restarts). Without an explicit name, sessions share the
+machine identity.
+
+To find your public key, ask the agent to run `agent_chat_whoami`; share
+that 64-hex key with teammates for their `allow` lists.
 
 Machines upgrading from the pre-rename package (`opencode-chat`) keep their
 identity: the seed is migrated automatically.
